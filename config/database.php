@@ -4,6 +4,12 @@ class Database {
     private $connection;
     
     public function __construct() {
+        // Ensure the data directory exists
+        $dir = dirname($this->db_path);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        
         $this->connection = new PDO("sqlite:" . $this->db_path);
         $this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         
