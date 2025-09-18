@@ -46,43 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_branch'])) {
     }
 }
 
-// Handle password change
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
-    $current_password = $_POST['current_password'] ?? '';
-    $new_password = $_POST['new_password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
-    
-    if (empty($current_password) || empty($new_password) || empty($confirm_password)) {
-        $error_message = 'Please fill in all password fields.';
-    } elseif ($new_password !== $confirm_password) {
-        $error_message = 'New passwords do not match.';
-    } elseif (strlen($new_password) < 6) {
-        $error_message = 'New password must be at least 6 characters long.';
-    } else {
-        // Verify current password
-        if (password_verify($current_password, $branch_info['manager_password'])) {
-            $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-            
-            try {
-                $stmt = $db->prepare("UPDATE branches SET manager_password = ? WHERE id = ?");
-                $stmt->execute([$hashed_password, $user_info['id']]);
-                
-                $auth->logActivity('branch', $user_info['id'], 'Password Changed', 'Branch manager changed password');
-                $success_message = 'Password changed successfully!';
-                
-                // Refresh branch info
-                $stmt = $db->prepare("SELECT * FROM branches WHERE id = ?");
-                $stmt->execute([$user_info['id']]);
-                $branch_info = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-            } catch (Exception $e) {
-                $error_message = 'Error changing password. Please try again.';
-            }
-        } else {
-            $error_message = 'Current password is incorrect.';
-        }
-    }
-}
+// Password change functionality removed - Only admins can reset branch manager passwords
 
 // Get branch statistics
 $stmt = $db->prepare("SELECT 
@@ -164,15 +128,10 @@ $recent_activities = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <h4 class="mb-4"><i class="fas fa-building me-2"></i>Branch Panel</h4>
                 
                 <div class="user-info bg-white bg-opacity-10 rounded p-3 mb-4">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar bg-white bg-opacity-20 rounded-circle p-2 me-3">
-                            <i class="fas fa-user-tie"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
-                            <small class="opacity-75">Branch Manager</small>
-                            <div class="small opacity-75"><?= htmlspecialchars($branch_info['branch_name']) ?></div>
-                        </div>
+                    <div>
+                        <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
+                        <small class="opacity-75">Branch Manager</small>
+                        <div class="small opacity-75"><?= htmlspecialchars($branch_info['branch_name']) ?></div>
                     </div>
                 </div>
                 
@@ -345,31 +304,18 @@ $recent_activities = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         </div>
                     </div>
                     
-                    <!-- Change Password -->
+                    <!-- Password updates removed - Only admins can reset branch manager passwords -->
                     <div class="col-lg-6 mb-4">
                         <div class="card shadow-sm">
                             <div class="card-header bg-white">
-                                <h5 class="mb-0"><i class="fas fa-key me-2"></i>Change Password</h5>
+                                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Password Management</h5>
                             </div>
                             <div class="card-body">
-                                <form method="POST">
-                                    <input type="hidden" name="change_password" value="1">
-                                    <div class="mb-3">
-                                        <label for="current_password" class="form-label">Current Password</label>
-                                        <input type="password" class="form-control" id="current_password" name="current_password" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="new_password" class="form-label">New Password</label>
-                                        <input type="password" class="form-control" id="new_password" name="new_password" required minlength="6">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="confirm_password" class="form-label">Confirm New Password</label>
-                                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required minlength="6">
-                                    </div>
-                                    <button type="submit" class="btn btn-warning">
-                                        <i class="fas fa-key me-2"></i>Change Password
-                                    </button>
-                                </form>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-lock me-2"></i>
+                                    <strong>Password Security:</strong> For security reasons, only administrators can reset branch manager passwords. 
+                                    Contact your administrator if you need to change your password.
+                                </div>
                             </div>
                         </div>
                     </div>

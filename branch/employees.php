@@ -151,15 +151,10 @@ $employees = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <h4 class="mb-4"><i class="fas fa-building me-2"></i>Branch Panel</h4>
                 
                 <div class="user-info bg-white bg-opacity-10 rounded p-3 mb-4">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar bg-white bg-opacity-20 rounded-circle p-2 me-3">
-                            <i class="fas fa-user-tie"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
-                            <small class="opacity-75">Branch Manager</small>
-                            <div class="small opacity-75"><?= htmlspecialchars($branch_info['branch_name']) ?></div>
-                        </div>
+                    <div>
+                        <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
+                        <small class="opacity-75">Branch Manager</small>
+                        <div class="small opacity-75"><?= htmlspecialchars($branch_info['branch_name']) ?></div>
                     </div>
                 </div>
                 
@@ -324,7 +319,12 @@ $employees = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="password" class="form-label">Password *</label>
-                                <input type="password" class="form-control" id="password" name="password" required minlength="6">
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="password" name="password" required minlength="6">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('password', this)">
+                                        <i class="fas fa-eye" id="password_icon"></i>
+                                    </button>
+                                </div>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="hire_date" class="form-label">Hire Date *</label>
@@ -366,5 +366,22 @@ $employees = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Password visibility toggle function
+        function togglePassword(inputId, button) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(inputId + '_icon');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+    </script>
 </body>
 </html>

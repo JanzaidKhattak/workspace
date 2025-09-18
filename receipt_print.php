@@ -82,11 +82,12 @@ if (!$receipt_id) {
             overflow: hidden;
         }
         .receipt-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #343a40;
             color: white;
             padding: 30px;
             text-align: center;
             position: relative;
+            border-bottom: 2px solid #dee2e6;
         }
         .company-logo {
             max-height: 60px;
@@ -104,11 +105,11 @@ if (!$receipt_id) {
         .info-group {
             background: #f8f9fa;
             padding: 15px;
-            border-radius: 10px;
-            border-left: 4px solid #667eea;
+            border-radius: 5px;
+            border-left: 3px solid #6c757d;
         }
         .info-group h6 {
-            color: #667eea;
+            color: #495057;
             font-weight: bold;
             margin-bottom: 10px;
         }
@@ -120,7 +121,7 @@ if (!$receipt_id) {
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         .items-table th {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #495057;
             color: white;
             padding: 15px;
             font-weight: 600;
@@ -136,7 +137,7 @@ if (!$receipt_id) {
             background-color: #f8f9fa;
         }
         .total-section {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            background: #495057;
             color: white;
             padding: 20px;
             border-radius: 10px;
@@ -199,8 +200,11 @@ if (!$receipt_id) {
     <?php else: ?>
         <!-- Print Actions -->
         <div class="print-actions print-hide">
-            <button onclick="window.print()" class="btn btn-primary btn-lg me-3">
+            <button onclick="window.print()" class="btn btn-primary btn-lg me-2">
                 <i class="fas fa-print me-2"></i>Print Receipt
+            </button>
+            <button onclick="shareWhatsApp()" class="btn btn-success btn-lg me-2">
+                <i class="fa-brands fa-whatsapp me-2"></i>Share on WhatsApp
             </button>
             <a href="javascript:history.back()" class="btn btn-secondary btn-lg">
                 <i class="fas fa-arrow-left me-2"></i>Back
@@ -238,7 +242,7 @@ if (!$receipt_id) {
             <div class="receipt-body">
                 <!-- Receipt Info -->
                 <div class="text-center mb-4">
-                    <h1 class="display-6 text-primary">Receipt #<?= htmlspecialchars($receipt['receipt_number']) ?></h1>
+                    <h1 class="display-6 text-dark">Receipt #<?= htmlspecialchars($receipt['receipt_number']) ?></h1>
                     <p class="text-muted"><?= date('l, F j, Y \a\t g:i A', strtotime($receipt['created_at'])) ?></p>
                 </div>
                 
@@ -279,11 +283,7 @@ if (!$receipt_id) {
                             <tr>
                                 <td>
                                     <strong><?= htmlspecialchars($item['service_name']) ?></strong>
-                                    <?php if ($item['commission_amount'] > 0): ?>
-                                        <br><small class="text-success">
-                                            <i class="fas fa-percentage me-1"></i>Commission: <?= formatCurrency($item['commission_amount'], $currency) ?>
-                                        </small>
-                                    <?php endif; ?>
+                                    <!-- Commission details removed for customer receipt -->
                                 </td>
                                 <td class="text-center"><?= $item['quantity'] ?></td>
                                 <td class="text-end"><?= formatCurrency($item['unit_price'], $currency) ?></td>
@@ -302,9 +302,7 @@ if (!$receipt_id) {
                         </div>
                         <div class="col-sm-6 text-end">
                             <h2 class="mb-1"><?= formatCurrency($receipt['total_amount'], $currency) ?></h2>
-                            <?php if ($receipt['total_commission'] > 0): ?>
-                                <p class="mb-0">Employee Commission: <?= formatCurrency($receipt['total_commission'], $currency) ?></p>
-                            <?php endif; ?>
+                            <!-- Employee commission details removed for customer receipt -->
                         </div>
                     </div>
                 </div>
@@ -327,16 +325,37 @@ if (!$receipt_id) {
         
         <!-- Print Actions -->
         <div class="print-actions print-hide">
-            <button onclick="window.print()" class="btn btn-primary btn-lg me-3">
+            <button onclick="window.print()" class="btn btn-primary btn-lg me-2">
                 <i class="fas fa-print me-2"></i>Print Receipt
+            </button>
+            <button onclick="shareWhatsApp()" class="btn btn-success btn-lg me-2">
+                <i class="fa-brands fa-whatsapp me-2"></i>Share on WhatsApp
             </button>
             <a href="javascript:history.back()" class="btn btn-secondary btn-lg">
                 <i class="fas fa-arrow-left me-2"></i>Back
             </a>
         </div>
-    <?php endif; ?>
-    
-    <script>
+        <script>
+        <?php if (isset($receipt)): ?>
+        // Receipt data for WhatsApp sharing (safely encoded)
+        const receiptData = <?= json_encode([
+            'receipt_number' => $receipt['receipt_number'],
+            'customer_name' => $receipt['customer_name'], 
+            'total_amount' => formatCurrency($receipt['total_amount'], $currency),
+            'payment_status' => ucfirst($receipt['payment_status']),
+            'company_name' => $settings['company_name'] ?? 'Typing Center',
+            'company_phone' => $settings['company_phone'] ?? ''
+        ], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT) ?>;
+        
+        const receiptItems = <?= json_encode(array_map(function($item, $index) use ($currency) {
+            return [
+                'index' => $index + 1,
+                'service_name' => $item['service_name'],
+                'quantity' => $item['quantity'],
+                'total_price' => formatCurrency($item['total_price'], $currency)
+            ];
+        }, $receipt_items, array_keys($receipt_items)), JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT) ?>;
+        <?php endif; ?>
         // Auto-focus on print button when page loads
         document.addEventListener('DOMContentLoaded', function() {
             // Auto print if 'print' parameter is present
@@ -345,6 +364,45 @@ if (!$receipt_id) {
                 setTimeout(() => window.print(), 500);
             }
         });
+        
+        // WhatsApp sharing function
+        function shareWhatsApp() {
+            <?php if (isset($receipt)): ?>
+            // Create receipt summary message using safely encoded data
+            let message = `🧾 *Receipt from ${receiptData.company_name}*\n\n`;
+            message += `📋 Receipt #: ${receiptData.receipt_number}\n`;
+            message += `👤 Customer: ${receiptData.customer_name}\n`;
+            message += `💰 Total Amount: ${receiptData.total_amount}\n`;
+            message += `✅ Status: ${receiptData.payment_status}\n\n`;
+            
+            // Add services list
+            message += `📝 *Services:*\n`;
+            receiptItems.forEach(item => {
+                message += `${item.index}. ${item.service_name} (${item.quantity}) - ${item.total_price}\n`;
+            });
+            
+            message += `\n`;
+            
+            // Add company contact if available
+            if (receiptData.company_phone) {
+                message += `📞 Contact: ${receiptData.company_phone}\n`;
+            }
+            
+            message += `\n✨ Thank you for choosing ${receiptData.company_name}!`;
+            
+            // URL encode the message
+            const encodedMessage = encodeURIComponent(message);
+            
+            // Create WhatsApp URL (opens WhatsApp with pre-filled message)
+            const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
+            
+            // Open WhatsApp in new window/tab
+            window.open(whatsappUrl, '_blank');
+            <?php else: ?>
+            console.error('Receipt data not available for sharing');
+            <?php endif; ?>
+        }
     </script>
+    <?php endif; // close error_message if ?>
 </body>
 </html>

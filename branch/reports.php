@@ -119,7 +119,7 @@ $top_customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <style>
         body { background-color: #f8f9fa; }
         .sidebar {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            background: #343a40;
             min-height: 100vh;
             color: white;
         }
@@ -162,15 +162,10 @@ $top_customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <h4 class="mb-4"><i class="fas fa-building me-2"></i>Branch Panel</h4>
                 
                 <div class="user-info bg-white bg-opacity-10 rounded p-3 mb-4">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar bg-white bg-opacity-20 rounded-circle p-2 me-3">
-                            <i class="fas fa-user-tie"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
-                            <small class="opacity-75">Branch Manager</small>
-                            <div class="small opacity-75"><?= htmlspecialchars($branch_info['branch_name']) ?></div>
-                        </div>
+                    <div>
+                        <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
+                        <small class="opacity-75">Branch Manager</small>
+                        <div class="small opacity-75"><?= htmlspecialchars($branch_info['branch_name']) ?></div>
                     </div>
                 </div>
                 
@@ -321,7 +316,7 @@ $top_customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                                         <td><?= date('M j, Y', strtotime($day['date'])) ?></td>
                                                         <td><?= $day['daily_receipts'] ?></td>
                                                         <td><?= $currency ?><?= number_format($day['daily_revenue'], 2) ?></td>
-                                                        <td class="text-success"><?= $currency ?><?= number_format($day['daily_commission'], 2) ?></td>
+                                                        <td class="text-dark"><?= $currency ?><?= number_format($day['daily_commission'], 2) ?></td>
                                                     </tr>
                                                 <?php endforeach; ?>
                                             </tbody>
@@ -400,7 +395,7 @@ $top_customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                                         </td>
                                                         <td><?= $emp['total_receipts'] ?></td>
                                                         <td><?= $currency ?><?= number_format($emp['total_revenue'], 0) ?></td>
-                                                        <td class="text-success"><?= $currency ?><?= number_format($emp['total_commission'], 0) ?></td>
+                                                        <td class="text-dark"><?= $currency ?><?= number_format($emp['total_commission'], 0) ?></td>
                                                     </tr>
                                                 <?php endforeach; ?>
                                             </tbody>

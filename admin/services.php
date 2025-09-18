@@ -133,14 +133,9 @@ $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <h4 class="mb-4"><i class="fas fa-keyboard me-2"></i>Admin Panel</h4>
                 
                 <div class="user-info bg-white bg-opacity-10 rounded p-3 mb-4">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar bg-white bg-opacity-20 rounded-circle p-2 me-3">
-                            <i class="fas fa-user-shield"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
-                            <small class="opacity-75">Administrator</small>
-                        </div>
+                    <div>
+                        <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
+                        <small class="opacity-75">Administrator</small>
                     </div>
                 </div>
                 

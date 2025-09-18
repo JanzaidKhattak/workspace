@@ -132,15 +132,10 @@ $stats = $stmt->fetch(PDO::FETCH_ASSOC);
                 <h4 class="mb-4"><i class="fas fa-building me-2"></i>Branch Panel</h4>
                 
                 <div class="user-info bg-white bg-opacity-10 rounded p-3 mb-4">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar bg-white bg-opacity-20 rounded-circle p-2 me-3">
-                            <i class="fas fa-user-tie"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
-                            <small class="opacity-75">Branch Manager</small>
-                            <div class="small opacity-75"><?= htmlspecialchars($branch_info['branch_name']) ?></div>
-                        </div>
+                    <div>
+                        <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
+                        <small class="opacity-75">Branch Manager</small>
+                        <div class="small opacity-75"><?= htmlspecialchars($branch_info['branch_name']) ?></div>
                     </div>
                 </div>
                 

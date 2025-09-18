@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../includes/auth.php';
+require_once '../includes/currency_helper.php';
 
 $database = new Database();
 $auth = new Auth($database);
@@ -33,6 +34,9 @@ $today_data = $stmt->fetch(PDO::FETCH_ASSOC);
 $stats['today_receipts'] = $today_data['count'];
 $stats['today_revenue'] = $today_data['total'];
 $stats['today_commission'] = $today_data['commission'];
+
+// Get current currency
+$current_currency = getCurrentCurrency($db);
 
 // Recent receipts
 $stmt = $db->prepare("SELECT r.*, 
@@ -134,16 +138,11 @@ $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <h4 class="mb-4"><i class="fas fa-user me-2"></i>Employee</h4>
                 
                 <div class="user-info bg-white bg-opacity-10 rounded p-3 mb-4">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar bg-white bg-opacity-20 rounded-circle p-2 me-3">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0"><?= htmlspecialchars($employee_info['full_name']) ?></h6>
-                            <small class="opacity-75">Employee</small>
-                            <div class="small opacity-75"><?= htmlspecialchars($employee_info['branch_name']) ?></div>
-                            <div class="small opacity-75">Code: <?= htmlspecialchars($employee_info['employee_code']) ?></div>
-                        </div>
+                    <div>
+                        <h6 class="mb-0"><?= htmlspecialchars($employee_info['full_name']) ?></h6>
+                        <small class="opacity-75">Employee</small>
+                        <div class="small opacity-75"><?= htmlspecialchars($employee_info['branch_name']) ?></div>
+                        <div class="small opacity-75">Code: <?= htmlspecialchars($employee_info['employee_code']) ?></div>
                     </div>
                 </div>
                 
@@ -233,7 +232,7 @@ $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     <i class="fas fa-dollar-sign"></i>
                                 </div>
                                 <div>
-                                    <h3 class="mb-0">$<?= number_format($stats['today_revenue'], 2) ?></h3>
+                                    <h3 class="mb-0"><?= formatCurrency($stats['today_revenue'], $current_currency) ?></h3>
                                     <p class="text-muted mb-0">Today's Revenue</p>
                                 </div>
                             </div>
@@ -247,7 +246,7 @@ $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     <i class="fas fa-percent"></i>
                                 </div>
                                 <div>
-                                    <h3 class="mb-0">$<?= number_format($stats['today_commission'], 2) ?></h3>
+                                    <h3 class="mb-0"><?= formatCurrency($stats['today_commission'], $current_currency) ?></h3>
                                     <p class="text-muted mb-0">Today's Commission</p>
                                 </div>
                             </div>
@@ -308,8 +307,8 @@ $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                                         </div>
                                                         <p class="card-text">
                                                             <strong>Customer:</strong> <?= htmlspecialchars($receipt['customer_name']) ?><br>
-                                                            <strong>Amount:</strong> $<?= number_format($receipt['total_amount'], 2) ?><br>
-                                                            <strong>Commission:</strong> $<?= number_format($receipt['total_commission'], 2) ?><br>
+                                                            <strong>Amount:</strong> <?= formatCurrency($receipt['total_amount'], $current_currency) ?><br>
+                                                            <strong>Commission:</strong> <?= formatCurrency($receipt['total_commission'], $current_currency) ?><br>
                                                             <strong>Items:</strong> <?= $receipt['item_count'] ?> service(s)
                                                         </p>
                                                         <small class="text-muted">
@@ -339,5 +338,19 @@ $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Currency change listener - reload page if currency was changed
+        if (localStorage) {
+            let lastCurrencyChange = localStorage.getItem('currency_changed');
+            let pageLoadTime = Date.now();
+            
+            setInterval(function() {
+                let currentCurrencyChange = localStorage.getItem('currency_changed');
+                if (currentCurrencyChange && currentCurrencyChange != lastCurrencyChange && currentCurrencyChange > pageLoadTime) {
+                    location.reload();
+                }
+            }, 2000); // Check every 2 seconds
+        }
+    </script>
 </body>
 </html>

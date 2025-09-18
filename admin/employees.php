@@ -146,46 +146,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 break;
 
-            case 'reset_branch_password':
-                $branch_id = $_POST['branch_id'] ?? '';
-                $new_password = $_POST['new_password'] ?? '';
-                $admin_password = $_POST['admin_password'] ?? '';
-                
-                if (empty($branch_id) || empty($new_password) || empty($admin_password)) {
-                    $error = 'All fields are required for password reset.';
-                } else {
-                    // Verify admin password
-                    $stmt = $db->prepare("SELECT password FROM admin WHERE id = ?");
-                    $stmt->execute([$user_info['id']]);
-                    $admin_data = $stmt->fetch(PDO::FETCH_ASSOC);
-                    
-                    if (password_verify($admin_password, $admin_data['password'])) {
-                        try {
-                            // Additional validation: ensure new password is strong
-                            if (strlen($new_password) < 6) {
-                                $error = 'New password must be at least 6 characters long.';
-                            } else {
-                                $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-                                $stmt = $db->prepare("UPDATE branches SET manager_password = ? WHERE id = ?");
-                                $stmt->execute([$hashed_password, $branch_id]);
-                                
-                                $stmt = $db->prepare("SELECT branch_name FROM branches WHERE id = ?");
-                                $stmt->execute([$branch_id]);
-                                $branch_name = $stmt->fetchColumn();
-                                
-                                $auth->logActivity('admin', $user_info['id'], 'Reset Branch Manager Password', "Reset password for branch: $branch_name");
-                                $message = 'Branch manager password reset successfully!';
-                            }
-                        } catch (PDOException $e) {
-                            $error = 'Error resetting branch manager password.';
-                        }
-                    } else {
-                        $error = 'Invalid admin password. Password reset denied.';
-                        $auth->logActivity('admin', $user_info['id'], 'Failed Password Reset', "Failed admin verification for branch manager password reset");
-                    }
-                }
-                break;
-
             case 'view_credentials':
                 $admin_password = $_POST['admin_password'] ?? '';
                 
@@ -300,14 +260,9 @@ if ($show_credentials) {
                 <h4 class="mb-4"><i class="fas fa-keyboard me-2"></i>Admin Panel</h4>
                 
                 <div class="user-info bg-white bg-opacity-10 rounded p-3 mb-4">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar bg-white bg-opacity-20 rounded-circle p-2 me-3">
-                            <i class="fas fa-user-shield"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
-                            <small class="opacity-75">Administrator</small>
-                        </div>
+                    <div>
+                        <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
+                        <small class="opacity-75">Administrator</small>
                     </div>
                 </div>
                 
@@ -434,6 +389,15 @@ if ($show_credentials) {
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                             
+                                            <!-- Reset Password Button -->
+                                            <button type="button" class="btn btn-sm btn-warning me-1 reset-employee-btn" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#resetPasswordModal"
+                                                    data-employee-id="<?= $employee['id'] ?>"
+                                                    data-employee-name="<?= htmlspecialchars($employee['full_name'], ENT_QUOTES) ?>">
+                                                <i class="fas fa-key"></i>
+                                            </button>
+                                            
                                             <!-- Status Toggle Button -->
                                             <form method="POST" class="d-inline">
                                                 <input type="hidden" name="action" value="update_status">
@@ -501,7 +465,12 @@ if ($show_credentials) {
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="password" class="form-label">Password <span class="text-danger">*</span></label>
-                                <input type="password" class="form-control" id="password" name="password" required>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="password" name="password" required>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('password', this)">
+                                        <i class="fas fa-eye" id="password_icon"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         
@@ -585,7 +554,12 @@ if ($show_credentials) {
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="edit_password" class="form-label">Password <small class="text-muted">(leave blank to keep current)</small></label>
-                                <input type="password" class="form-control" id="edit_password" name="password" placeholder="Leave blank to keep current password">
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="edit_password" name="password" placeholder="Leave blank to keep current password">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('edit_password', this)">
+                                        <i class="fas fa-eye" id="edit_password_icon"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         
@@ -622,8 +596,74 @@ if ($show_credentials) {
         </div>
     </div>
     
+    <!-- Reset Password Modal -->
+    <div class="modal fade" id="resetPasswordModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-key me-2"></i>Reset Employee Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="reset_employee_password">
+                        <input type="hidden" name="employee_id" id="reset_employee_id">
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Security Required:</strong> Enter your admin password to confirm this action.
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Employee:</strong> <span id="reset_employee_name"></span></label>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="new_password" class="form-label">New Password <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="reset_new_password" name="new_password" required minlength="6">
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('reset_new_password', this)">
+                                    <i class="fas fa-eye" id="reset_new_password_icon"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Minimum 6 characters</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="admin_password" class="form-label">Your Admin Password <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="reset_admin_password" name="admin_password" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-key me-2"></i>Reset Password
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Password visibility toggle function
+        function togglePassword(inputId, button) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(inputId + '_icon');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+        
+        // Auto-generate employee code
         // Auto-generate employee code
         document.getElementById('full_name').addEventListener('input', function() {
             const name = this.value.trim();
@@ -635,6 +675,21 @@ if ($show_credentials) {
         
         // Set default hire date to today
         document.getElementById('hire_date').value = new Date().toISOString().split('T')[0];
+        
+        // Event listener for reset password buttons
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.reset-employee-btn')) {
+                const button = e.target.closest('.reset-employee-btn');
+                const employeeId = button.getAttribute('data-employee-id');
+                const employeeName = button.getAttribute('data-employee-name');
+                
+                document.getElementById('reset_employee_id').value = employeeId;
+                document.getElementById('reset_employee_name').textContent = employeeName;
+                // Clear password fields
+                document.getElementById('reset_new_password').value = '';
+                document.getElementById('reset_admin_password').value = '';
+            }
+        });
 
         // Function to populate edit modal with employee data
         function populateEditModal(employee) {

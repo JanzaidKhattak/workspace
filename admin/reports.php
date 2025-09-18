@@ -146,7 +146,7 @@ switch ($report_type) {
             background-color: #f8f9fa;
         }
         .sidebar {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #343a40;
             min-height: 100vh;
             color: white;
         }
@@ -181,14 +181,9 @@ switch ($report_type) {
                 <h4 class="mb-4"><i class="fas fa-keyboard me-2"></i>Admin Panel</h4>
                 
                 <div class="user-info bg-white bg-opacity-10 rounded p-3 mb-4">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar bg-white bg-opacity-20 rounded-circle p-2 me-3">
-                            <i class="fas fa-user-shield"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
-                            <small class="opacity-75">Administrator</small>
-                        </div>
+                    <div>
+                        <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
+                        <small class="opacity-75">Administrator</small>
                     </div>
                 </div>
                 
@@ -275,7 +270,7 @@ switch ($report_type) {
                         <div class="col-md-3">
                             <div class="card report-card text-center">
                                 <div class="card-body">
-                                    <h3 class="text-primary"><?= $overview['total_receipts'] ?></h3>
+                                    <h3 class="text-dark"><?= $overview['total_receipts'] ?></h3>
                                     <p class="mb-0">Total Receipts</p>
                                 </div>
                             </div>
@@ -283,7 +278,7 @@ switch ($report_type) {
                         <div class="col-md-3">
                             <div class="card report-card text-center">
                                 <div class="card-body">
-                                    <h3 class="text-success">$<?= number_format($overview['total_revenue'], 2) ?></h3>
+                                    <h3 class="text-dark">$<?= number_format($overview['total_revenue'], 2) ?></h3>
                                     <p class="mb-0">Total Revenue</p>
                                 </div>
                             </div>
@@ -291,7 +286,7 @@ switch ($report_type) {
                         <div class="col-md-3">
                             <div class="card report-card text-center">
                                 <div class="card-body">
-                                    <h3 class="text-warning">$<?= number_format($overview['total_commission'], 2) ?></h3>
+                                    <h3 class="text-dark">$<?= number_format($overview['total_commission'], 2) ?></h3>
                                     <p class="mb-0">Total Commission</p>
                                 </div>
                             </div>
@@ -299,7 +294,7 @@ switch ($report_type) {
                         <div class="col-md-3">
                             <div class="card report-card text-center">
                                 <div class="card-body">
-                                    <h3 class="text-info">$<?= number_format($overview['avg_receipt_value'], 2) ?></h3>
+                                    <h3 class="text-dark">$<?= number_format($overview['avg_receipt_value'], 2) ?></h3>
                                     <p class="mb-0">Avg Receipt Value</p>
                                 </div>
                             </div>

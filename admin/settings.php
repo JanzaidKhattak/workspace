@@ -13,6 +13,10 @@ $db = $database->getConnection();
 $message = '';
 $error = '';
 
+// Get current settings FIRST (before handling POST)
+$stmt = $db->query("SELECT setting_key, setting_value FROM settings");
+$settings_data = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
@@ -24,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $receipt_header = trim($_POST['receipt_header'] ?? '');
                 $receipt_footer = trim($_POST['receipt_footer'] ?? '');
                 $currency = trim($_POST['currency'] ?? 'USD');
-                $logo_url = trim($_POST['logo_url'] ?? '');
+                $logo_url = $settings_data['logo_url'] ?? ''; // Keep existing logo by default
                 
                 // Validate currency - only allow specific currencies
                 $allowed_currencies = ['USD', 'AED', 'PKR', 'INR', 'EUR'];
@@ -33,10 +37,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     break;
                 }
                 
-                // Validate logo URL for security (prevent XSS)
-                if (!empty($logo_url) && !filter_var($logo_url, FILTER_VALIDATE_URL)) {
-                    $error = 'Invalid logo URL format.';
-                    break;
+                // Handle logo upload
+                if (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] === UPLOAD_ERR_OK) {
+                    $upload_fs_dir = realpath(__DIR__ . '/../assets/uploads/logos');
+                    $max_size = 2 * 1024 * 1024; // 2MB limit
+                    
+                    $file_info = $_FILES['logo_file'];
+                    $file_size = $file_info['size'];
+                    $tmp_path = $file_info['tmp_name'];
+                    
+                    if ($file_size > $max_size) {
+                        $error = 'File too large. Maximum size is 2MB.';
+                        break;
+                    }
+                    
+                    // Secure content validation using finfo
+                    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                    $detected_mime = finfo_file($finfo, $tmp_path);
+                    finfo_close($finfo);
+                    
+                    // Map MIME types to safe extensions
+                    $mime_to_ext = [
+                        'image/jpeg' => 'jpg',
+                        'image/png' => 'png', 
+                        'image/gif' => 'gif',
+                        'image/webp' => 'webp'
+                    ];
+                    
+                    if (!array_key_exists($detected_mime, $mime_to_ext)) {
+                        $error = 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.';
+                        break;
+                    }
+                    
+                    // Additional validation with getimagesize for extra security
+                    $image_info = getimagesize($tmp_path);
+                    if ($image_info === false) {
+                        $error = 'Invalid image file.';
+                        break;
+                    }
+                    
+                    // Generate secure filename with forced extension based on detected MIME
+                    $safe_extension = $mime_to_ext[$detected_mime];
+                    $new_filename = 'logo_' . time() . '_' . mt_rand(1000, 9999) . '.' . $safe_extension;
+                    $upload_path = $upload_fs_dir . '/' . $new_filename;
+                    
+                    if (move_uploaded_file($tmp_path, $upload_path)) {
+                        // Delete old logo file if it exists and is not a URL
+                        $old_logo = $settings_data['logo_url'] ?? '';
+                        if (!empty($old_logo) && !filter_var($old_logo, FILTER_VALIDATE_URL)) {
+                            $old_path = __DIR__ . '/..' . $old_logo;
+                            if (file_exists($old_path)) {
+                                unlink($old_path);
+                            }
+                        }
+                        
+                        $logo_url = '/uploads/logos/' . $new_filename; // Leading slash for absolute path
+                    } else {
+                        $error = 'Failed to upload logo file.';
+                        break;
+                    }
+                } else if (isset($_POST['remove_logo']) && $_POST['remove_logo'] === '1') {
+                    // Remove existing logo
+                    $old_logo = $settings_data['logo_url'] ?? '';
+                    if (!empty($old_logo) && !filter_var($old_logo, FILTER_VALIDATE_URL)) {
+                        $old_path = __DIR__ . '/..' . $old_logo;
+                        if (file_exists($old_path)) {
+                            unlink($old_path);
+                        }
+                    }
+                    $logo_url = '';
                 }
                 
                 try {
@@ -57,6 +126,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     $auth->logActivity('admin', $user_info['id'], 'Update Settings', 'Updated company settings');
                     $message = 'Company settings updated successfully!';
+                    
+                    // Notify other pages about currency change
+                    echo '<script>
+                        if (localStorage) {
+                            localStorage.setItem("currency_changed", Date.now());
+                        }
+                    </script>';
                 } catch (PDOException $e) {
                     $error = 'Error updating settings. Please try again.';
                 }
@@ -95,9 +171,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get current settings
-$stmt = $db->query("SELECT setting_key, setting_value FROM settings");
-$settings_data = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+// Settings already loaded above - refresh after updates if needed
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
+    $stmt = $db->query("SELECT setting_key, setting_value FROM settings");
+    $settings_data = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+}
 
 // Get system statistics
 $stats = [];
@@ -157,14 +235,9 @@ $db_size_mb = round($db_size / (1024 * 1024), 2);
                 <h4 class="mb-4"><i class="fas fa-keyboard me-2"></i>Admin Panel</h4>
                 
                 <div class="user-info bg-white bg-opacity-10 rounded p-3 mb-4">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar bg-white bg-opacity-20 rounded-circle p-2 me-3">
-                            <i class="fas fa-user-shield"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
-                            <small class="opacity-75">Administrator</small>
-                        </div>
+                    <div>
+                        <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
+                        <small class="opacity-75">Administrator</small>
                     </div>
                 </div>
                 
@@ -223,7 +296,7 @@ $db_size_mb = round($db_size / (1024 * 1024), 2);
                                 <h5 class="mb-0"><i class="fas fa-building me-2"></i>Company Information</h5>
                             </div>
                             <div class="card-body">
-                                <form method="POST">
+                                <form method="POST" enctype="multipart/form-data">
                                     <input type="hidden" name="action" value="update_company_settings">
                                     
                                     <div class="mb-3">
@@ -268,11 +341,44 @@ $db_size_mb = round($db_size / (1024 * 1024), 2);
                                     </div>
                                     
                                     <div class="mb-3">
-                                        <label for="logo_url" class="form-label">Company Logo URL</label>
-                                        <input type="url" class="form-control" id="logo_url" name="logo_url" 
-                                               value="<?= htmlspecialchars($settings_data['logo_url'] ?? '') ?>"
-                                               placeholder="https://example.com/logo.png">
-                                        <div class="form-text">Logo will appear on receipts and system header</div>
+                                        <label for="logo_file" class="form-label">Company Logo</label>
+                                        
+                                        <!-- Current Logo Display -->
+                                        <?php if (!empty($settings_data['logo_url'])): ?>
+                                            <div class="current-logo mb-3 p-3 border rounded">
+                                                <label class="form-label text-muted">Current Logo:</label>
+                                                <div class="d-flex align-items-center">
+                                                    <img src="<?= htmlspecialchars($settings_data['logo_url']) ?>" 
+                                                         alt="Current Logo" 
+                                                         class="me-3" 
+                                                         style="max-height: 60px; max-width: 120px; object-fit: contain;">
+                                                    <div>
+                                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLogo()"
+                                                                id="remove-logo-btn">
+                                                            <i class="fas fa-trash me-1"></i>Remove Logo
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
+                                        
+                                        <!-- Logo Upload Input -->
+                                        <input type="file" class="form-control" id="logo_file" name="logo_file" 
+                                               accept="image/jpeg,image/png,image/gif,image/webp"
+                                               onchange="previewLogo(this)">
+                                        <div class="form-text">Upload a logo image (JPEG, PNG, GIF, WebP - Max 2MB). Logo will appear on receipts and system header.</div>
+                                        
+                                        <!-- Logo Preview -->
+                                        <div id="logo-preview" class="mt-3" style="display: none;">
+                                            <label class="form-label text-muted">Preview:</label>
+                                            <div class="p-3 border rounded">
+                                                <img id="logo-preview-img" src="" alt="Logo Preview" 
+                                                     style="max-height: 80px; max-width: 160px; object-fit: contain;">
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Hidden field for logo removal -->
+                                        <input type="hidden" id="remove_logo" name="remove_logo" value="0">
                                     </div>
                                     
                                     <button type="submit" class="btn btn-primary">
@@ -401,6 +507,53 @@ $db_size_mb = round($db_size / (1024 * 1024), 2);
                 this.setCustomValidity('');
             }
         });
+        
+        // Logo preview function
+        function previewLogo(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                
+                // Check file size (2MB = 2 * 1024 * 1024 bytes)
+                if (file.size > 2 * 1024 * 1024) {
+                    alert('File too large. Maximum size is 2MB.');
+                    input.value = '';
+                    document.getElementById('logo-preview').style.display = 'none';
+                    return;
+                }
+                
+                // Check file type
+                const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                if (!allowedTypes.includes(file.type)) {
+                    alert('Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.');
+                    input.value = '';
+                    document.getElementById('logo-preview').style.display = 'none';
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('logo-preview-img').src = e.target.result;
+                    document.getElementById('logo-preview').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                document.getElementById('logo-preview').style.display = 'none';
+            }
+        }
+        
+        // Remove logo function
+        function removeLogo() {
+            if (confirm('Are you sure you want to remove the current logo?')) {
+                document.getElementById('remove_logo').value = '1';
+                document.querySelector('.current-logo').style.display = 'none';
+                
+                // Show removal confirmation
+                const removeBtn = document.getElementById('remove-logo-btn');
+                removeBtn.innerHTML = '<i class="fas fa-check me-1"></i>Will be removed on save';
+                removeBtn.disabled = true;
+                removeBtn.className = 'btn btn-sm btn-success';
+            }
+        }
     </script>
 </body>
 </html>

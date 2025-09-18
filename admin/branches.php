@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../includes/auth.php';
+require_once '../includes/currency_helper.php';
 
 $database = new Database();
 $auth = new Auth($database);
@@ -9,6 +10,9 @@ $auth->requireRole(['admin']);
 
 $user_info = $auth->getUserInfo();
 $db = $database->getConnection();
+
+// Get current currency
+$current_currency = getCurrentCurrency($db);
 
 $message = '';
 $error = '';
@@ -101,6 +105,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 break;
+                
+            case 'reset_branch_password':
+                $branch_id = $_POST['branch_id'] ?? '';
+                $new_password = $_POST['new_password'] ?? '';
+                $admin_password = $_POST['admin_password'] ?? '';
+                
+                if (empty($branch_id) || empty($new_password) || empty($admin_password)) {
+                    $error = 'All fields are required for password reset.';
+                } else {
+                    // Verify admin password
+                    $stmt = $db->prepare("SELECT password FROM admin WHERE id = ?");
+                    $stmt->execute([$user_info['id']]);
+                    $admin_data = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if (password_verify($admin_password, $admin_data['password'])) {
+                        try {
+                            // Additional validation: ensure new password is strong
+                            if (strlen($new_password) < 6) {
+                                $error = 'New password must be at least 6 characters long.';
+                            } else {
+                                $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+                                $stmt = $db->prepare("UPDATE branches SET manager_password = ? WHERE id = ?");
+                                $stmt->execute([$hashed_password, $branch_id]);
+                                
+                                $stmt = $db->prepare("SELECT branch_name FROM branches WHERE id = ?");
+                                $stmt->execute([$branch_id]);
+                                $branch_name = $stmt->fetchColumn();
+                                
+                                $auth->logActivity('admin', $user_info['id'], 'Reset Branch Manager Password', "Reset password for branch: $branch_name");
+                                $message = 'Branch manager password reset successfully!';
+                            }
+                        } catch (PDOException $e) {
+                            $error = 'Error resetting branch manager password.';
+                        }
+                    } else {
+                        $error = 'Invalid admin password. Password reset denied.';
+                        $auth->logActivity('admin', $user_info['id'], 'Failed Password Reset', "Failed admin verification for branch manager password reset");
+                    }
+                }
+                break;
         }
     }
 }
@@ -171,14 +215,9 @@ $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <h4 class="mb-4"><i class="fas fa-keyboard me-2"></i>Admin Panel</h4>
                 
                 <div class="user-info bg-white bg-opacity-10 rounded p-3 mb-4">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar bg-white bg-opacity-20 rounded-circle p-2 me-3">
-                            <i class="fas fa-user-shield"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
-                            <small class="opacity-75">Administrator</small>
-                        </div>
+                    <div>
+                        <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
+                        <small class="opacity-75">Administrator</small>
                     </div>
                 </div>
                 
@@ -297,7 +336,7 @@ $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                                     <small class="text-muted">Receipts</small>
                                                 </div>
                                                 <div class="col-4">
-                                                    <div class="h6 mb-0">$<?= number_format($branch['monthly_revenue'], 0) ?></div>
+                                                    <div class="h6 mb-0"><?= formatCurrency($branch['monthly_revenue'], $current_currency) ?></div>
                                                     <small class="text-muted">Revenue</small>
                                                 </div>
                                             </div>
@@ -312,6 +351,15 @@ $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                                         data-bs-target="#editBranchModal"
                                                         onclick="populateEditModal(<?= htmlspecialchars(json_encode($branch)) ?>)">
                                                     <i class="fas fa-edit me-1"></i>Edit
+                                                </button>
+                                                
+                                                <!-- Reset Password Button -->
+                                                <button type="button" class="btn btn-sm btn-warning flex-fill reset-branch-btn" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#resetBranchPasswordModal"
+                                                        data-branch-id="<?= $branch['id'] ?>"
+                                                        data-branch-name="<?= htmlspecialchars($branch['branch_name'], ENT_QUOTES) ?>">
+                                                    <i class="fas fa-key me-1"></i>Reset PW
                                                 </button>
                                                 
                                                 <!-- Status Toggle Button -->
@@ -400,7 +448,12 @@ $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="manager_password" class="form-label">Manager Password <span class="text-danger">*</span></label>
-                                <input type="password" class="form-control" id="manager_password" name="manager_password" required>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="manager_password" name="manager_password" required>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('manager_password', this)">
+                                        <i class="fas fa-eye" id="manager_password_icon"></i>
+                                    </button>
+                                </div>
                                 <div class="form-text">Minimum 6 characters</div>
                             </div>
                         </div>
@@ -473,7 +526,12 @@ $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="edit_manager_password" class="form-label">Manager Password <small class="text-muted">(leave blank to keep current)</small></label>
-                                <input type="password" class="form-control" id="edit_manager_password" name="manager_password" placeholder="Leave blank to keep current password">
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="edit_manager_password" name="manager_password" placeholder="Leave blank to keep current password">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('edit_manager_password', this)">
+                                        <i class="fas fa-eye" id="edit_manager_password_icon"></i>
+                                    </button>
+                                </div>
                                 <div class="form-text">Leave blank to keep current password</div>
                             </div>
                         </div>
@@ -489,14 +547,94 @@ $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
     
+    <!-- Reset Branch Password Modal -->
+    <div class="modal fade" id="resetBranchPasswordModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-key me-2"></i>Reset Branch Manager Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="reset_branch_password">
+                        <input type="hidden" name="branch_id" id="reset_branch_id">
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Security Required:</strong> Enter your admin password to confirm this action.
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Branch:</strong> <span id="reset_branch_name"></span></label>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="new_password" class="form-label">New Manager Password <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="reset_branch_new_password" name="new_password" required minlength="6">
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('reset_branch_new_password', this)">
+                                    <i class="fas fa-eye" id="reset_branch_new_password_icon"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Minimum 6 characters</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="admin_password" class="form-label">Your Admin Password <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="reset_branch_admin_password" name="admin_password" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-key me-2"></i>Reset Password
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Password visibility toggle function
+        function togglePassword(inputId, button) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(inputId + '_icon');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+        
         // Auto-generate branch code based on branch name
         document.getElementById('branch_name').addEventListener('input', function() {
             const name = this.value.trim();
             if (name) {
                 const code = 'BR' + name.substring(0, 3).toUpperCase().padEnd(3, 'X') + Math.floor(Math.random() * 100).toString().padStart(2, '0');
                 document.getElementById('branch_code').value = code;
+            }
+        });
+        
+        // Event listener for reset branch password buttons
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.reset-branch-btn')) {
+                const button = e.target.closest('.reset-branch-btn');
+                const branchId = button.getAttribute('data-branch-id');
+                const branchName = button.getAttribute('data-branch-name');
+                
+                document.getElementById('reset_branch_id').value = branchId;
+                document.getElementById('reset_branch_name').textContent = branchName;
+                // Clear password fields
+                document.getElementById('reset_branch_new_password').value = '';
+                document.getElementById('reset_branch_admin_password').value = '';
             }
         });
         

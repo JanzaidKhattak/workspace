@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../includes/auth.php';
+require_once '../includes/currency_helper.php';
 
 $database = new Database();
 $auth = new Auth($database);
@@ -26,6 +27,9 @@ $stmt = $db->query("SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as 
 $monthly_data = $stmt->fetch(PDO::FETCH_ASSOC);
 $stats['monthly_receipts'] = $monthly_data['count'];
 $stats['monthly_revenue'] = $monthly_data['total'];
+
+// Get current currency
+$current_currency = getCurrentCurrency($db);
 
 // Recent activities
 $stmt = $db->prepare("SELECT al.*, 
@@ -110,14 +114,9 @@ $recent_activities = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <h4 class="mb-4"><i class="fas fa-keyboard me-2"></i>Admin Panel</h4>
                 
                 <div class="user-info bg-white bg-opacity-10 rounded p-3 mb-4">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar bg-white bg-opacity-20 rounded-circle p-2 me-3">
-                            <i class="fas fa-user-shield"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
-                            <small class="opacity-75">Administrator</small>
-                        </div>
+                    <div>
+                        <h6 class="mb-0"><?= htmlspecialchars($user_info['full_name']) ?></h6>
+                        <small class="opacity-75">Administrator</small>
                     </div>
                 </div>
                 
@@ -207,7 +206,7 @@ $recent_activities = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     <i class="fas fa-dollar-sign"></i>
                                 </div>
                                 <div>
-                                    <h3 class="mb-0">$<?= number_format($stats['monthly_revenue'], 2) ?></h3>
+                                    <h3 class="mb-0"><?= formatCurrency($stats['monthly_revenue'], $current_currency) ?></h3>
                                     <p class="text-muted mb-0">Monthly Revenue</p>
                                 </div>
                             </div>
@@ -275,5 +274,19 @@ $recent_activities = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Currency change listener - reload page if currency was changed
+        if (localStorage) {
+            let lastCurrencyChange = localStorage.getItem('currency_changed');
+            let pageLoadTime = Date.now();
+            
+            setInterval(function() {
+                let currentCurrencyChange = localStorage.getItem('currency_changed');
+                if (currentCurrencyChange && currentCurrencyChange != lastCurrencyChange && currentCurrencyChange > pageLoadTime) {
+                    location.reload();
+                }
+            }, 2000); // Check every 2 seconds
+        }
+    </script>
 </body>
 </html>

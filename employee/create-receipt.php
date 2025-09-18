@@ -171,16 +171,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <h4 class="mb-4"><i class="fas fa-user me-2"></i>Employee</h4>
                 
                 <div class="user-info bg-white bg-opacity-10 rounded p-3 mb-4">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar bg-white bg-opacity-20 rounded-circle p-2 me-3">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0"><?= htmlspecialchars($employee_info['full_name']) ?></h6>
-                            <small class="opacity-75">Employee</small>
-                            <div class="small opacity-75"><?= htmlspecialchars($employee_info['branch_name']) ?></div>
-                            <div class="small opacity-75">Code: <?= htmlspecialchars($employee_info['employee_code']) ?></div>
-                        </div>
+                    <div>
+                        <h6 class="mb-0"><?= htmlspecialchars($employee_info['full_name']) ?></h6>
+                        <small class="opacity-75">Employee</small>
+                        <div class="small opacity-75"><?= htmlspecialchars($employee_info['branch_name']) ?></div>
+                        <div class="small opacity-75">Code: <?= htmlspecialchars($employee_info['employee_code']) ?></div>
                     </div>
                 </div>
                 
