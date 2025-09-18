@@ -23,6 +23,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $company_phone = trim($_POST['company_phone'] ?? '');
                 $receipt_header = trim($_POST['receipt_header'] ?? '');
                 $receipt_footer = trim($_POST['receipt_footer'] ?? '');
+                $currency = trim($_POST['currency'] ?? 'USD');
+                $logo_url = trim($_POST['logo_url'] ?? '');
+                
+                // Validate currency - only allow specific currencies
+                $allowed_currencies = ['USD', 'AED', 'PKR', 'INR', 'EUR'];
+                if (!in_array($currency, $allowed_currencies)) {
+                    $error = 'Invalid currency selection. Please choose from USD, AED, PKR, INR, or EUR.';
+                    break;
+                }
+                
+                // Validate logo URL for security (prevent XSS)
+                if (!empty($logo_url) && !filter_var($logo_url, FILTER_VALIDATE_URL)) {
+                    $error = 'Invalid logo URL format.';
+                    break;
+                }
                 
                 try {
                     $settings = [
@@ -30,7 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'company_address' => $company_address,
                         'company_phone' => $company_phone,
                         'receipt_header' => $receipt_header,
-                        'receipt_footer' => $receipt_footer
+                        'receipt_footer' => $receipt_footer,
+                        'currency' => $currency,
+                        'logo_url' => $logo_url
                     ];
                     
                     foreach ($settings as $key => $value) {
@@ -236,6 +253,26 @@ $db_size_mb = round($db_size / (1024 * 1024), 2);
                                         <label for="receipt_footer" class="form-label">Receipt Footer Text</label>
                                         <input type="text" class="form-control" id="receipt_footer" name="receipt_footer" 
                                                value="<?= htmlspecialchars($settings_data['receipt_footer'] ?? '') ?>">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="currency" class="form-label">System Currency</label>
+                                        <select class="form-select" id="currency" name="currency">
+                                            <option value="USD" <?= ($settings_data['currency'] ?? 'USD') === 'USD' ? 'selected' : '' ?>>USD ($) - US Dollar</option>
+                                            <option value="AED" <?= ($settings_data['currency'] ?? '') === 'AED' ? 'selected' : '' ?>>AED (د.إ) - UAE Dirham</option>
+                                            <option value="PKR" <?= ($settings_data['currency'] ?? '') === 'PKR' ? 'selected' : '' ?>>PKR (₨) - Pakistani Rupee</option>
+                                            <option value="INR" <?= ($settings_data['currency'] ?? '') === 'INR' ? 'selected' : '' ?>>INR (₹) - Indian Rupee</option>
+                                            <option value="EUR" <?= ($settings_data['currency'] ?? '') === 'EUR' ? 'selected' : '' ?>>EUR (€) - Euro</option>
+                                        </select>
+                                        <div class="form-text">Currency will be displayed throughout the system</div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="logo_url" class="form-label">Company Logo URL</label>
+                                        <input type="url" class="form-control" id="logo_url" name="logo_url" 
+                                               value="<?= htmlspecialchars($settings_data['logo_url'] ?? '') ?>"
+                                               placeholder="https://example.com/logo.png">
+                                        <div class="form-text">Logo will appear on receipts and system header</div>
                                     </div>
                                     
                                     <button type="submit" class="btn btn-primary">

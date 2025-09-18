@@ -105,6 +105,111 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 break;
+
+            case 'reset_employee_password':
+                $employee_id = $_POST['employee_id'] ?? '';
+                $new_password = $_POST['new_password'] ?? '';
+                $admin_password = $_POST['admin_password'] ?? '';
+                
+                if (empty($employee_id) || empty($new_password) || empty($admin_password)) {
+                    $error = 'All fields are required for password reset.';
+                } else {
+                    // Verify admin password
+                    $stmt = $db->prepare("SELECT password FROM admin WHERE id = ?");
+                    $stmt->execute([$user_info['id']]);
+                    $admin_data = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if (password_verify($admin_password, $admin_data['password'])) {
+                        try {
+                            // Additional validation: ensure new password is strong
+                            if (strlen($new_password) < 6) {
+                                $error = 'New password must be at least 6 characters long.';
+                            } else {
+                                $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+                                $stmt = $db->prepare("UPDATE employees SET password = ? WHERE id = ?");
+                                $stmt->execute([$hashed_password, $employee_id]);
+                                
+                                $stmt = $db->prepare("SELECT full_name FROM employees WHERE id = ?");
+                                $stmt->execute([$employee_id]);
+                                $emp_name = $stmt->fetchColumn();
+                                
+                                $auth->logActivity('admin', $user_info['id'], 'Reset Employee Password', "Reset password for employee: $emp_name");
+                                $message = 'Employee password reset successfully!';
+                            }
+                        } catch (PDOException $e) {
+                            $error = 'Error resetting employee password.';
+                        }
+                    } else {
+                        $error = 'Invalid admin password. Password reset denied.';
+                        $auth->logActivity('admin', $user_info['id'], 'Failed Password Reset', "Failed admin verification for employee password reset");
+                    }
+                }
+                break;
+
+            case 'reset_branch_password':
+                $branch_id = $_POST['branch_id'] ?? '';
+                $new_password = $_POST['new_password'] ?? '';
+                $admin_password = $_POST['admin_password'] ?? '';
+                
+                if (empty($branch_id) || empty($new_password) || empty($admin_password)) {
+                    $error = 'All fields are required for password reset.';
+                } else {
+                    // Verify admin password
+                    $stmt = $db->prepare("SELECT password FROM admin WHERE id = ?");
+                    $stmt->execute([$user_info['id']]);
+                    $admin_data = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if (password_verify($admin_password, $admin_data['password'])) {
+                        try {
+                            // Additional validation: ensure new password is strong
+                            if (strlen($new_password) < 6) {
+                                $error = 'New password must be at least 6 characters long.';
+                            } else {
+                                $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+                                $stmt = $db->prepare("UPDATE branches SET manager_password = ? WHERE id = ?");
+                                $stmt->execute([$hashed_password, $branch_id]);
+                                
+                                $stmt = $db->prepare("SELECT branch_name FROM branches WHERE id = ?");
+                                $stmt->execute([$branch_id]);
+                                $branch_name = $stmt->fetchColumn();
+                                
+                                $auth->logActivity('admin', $user_info['id'], 'Reset Branch Manager Password', "Reset password for branch: $branch_name");
+                                $message = 'Branch manager password reset successfully!';
+                            }
+                        } catch (PDOException $e) {
+                            $error = 'Error resetting branch manager password.';
+                        }
+                    } else {
+                        $error = 'Invalid admin password. Password reset denied.';
+                        $auth->logActivity('admin', $user_info['id'], 'Failed Password Reset', "Failed admin verification for branch manager password reset");
+                    }
+                }
+                break;
+
+            case 'view_credentials':
+                $admin_password = $_POST['admin_password'] ?? '';
+                
+                if (empty($admin_password)) {
+                    $error = 'Admin password is required to view credentials.';
+                } else {
+                    // Verify admin password
+                    $stmt = $db->prepare("SELECT password FROM admin WHERE id = ?");
+                    $stmt->execute([$user_info['id']]);
+                    $admin_data = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if (password_verify($admin_password, $admin_data['password'])) {
+                        // Set session flag with short expiry for credential viewing
+                        $_SESSION['admin_verified_at'] = time();
+                        $_SESSION['admin_verified_for'] = 'credentials';
+                        $show_credentials = true;
+                        $auth->logActivity('admin', $user_info['id'], 'View User Credentials', 'Admin accessed user credentials list');
+                        $message = 'Admin credentials verified. Showing user credentials below.';
+                    } else {
+                        $error = 'Invalid admin password. Access denied.';
+                        $auth->logActivity('admin', $user_info['id'], 'Failed Credential Access', 'Failed admin password verification for credential viewing');
+                    }
+                }
+                break;
         }
     }
 }
@@ -121,6 +226,31 @@ $employees = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // Get active branches for the form
 $stmt = $db->query("SELECT * FROM branches WHERE status = 'active' ORDER BY branch_name");
 $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// For credential viewing (only show if admin password recently verified)
+$show_credentials = false;
+$employee_credentials = [];
+$branch_credentials = [];
+
+// Check if admin was recently verified (expire after 300 seconds)
+if (isset($_SESSION['admin_verified_at']) && isset($_SESSION['admin_verified_for']) && 
+    $_SESSION['admin_verified_for'] === 'credentials' && 
+    (time() - $_SESSION['admin_verified_at']) <= 300) {
+    $show_credentials = true;
+}
+
+if ($show_credentials) {
+    // Get employee credentials (username only, never show passwords)
+    $stmt = $db->query("SELECT e.id, e.employee_code, e.username, e.full_name, b.branch_name 
+        FROM employees e 
+        LEFT JOIN branches b ON e.branch_id = b.id 
+        ORDER BY e.full_name");
+    $employee_credentials = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Get branch credentials (username only, never show passwords)
+    $stmt = $db->query("SELECT id, branch_code, manager_username, branch_name FROM branches ORDER BY branch_name");
+    $branch_credentials = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
