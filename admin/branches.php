@@ -46,6 +46,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 break;
+
+            case 'edit_branch':
+                $branch_id = $_POST['branch_id'] ?? '';
+                $branch_name = trim($_POST['branch_name'] ?? '');
+                $branch_code = trim($_POST['branch_code'] ?? '');
+                $address = trim($_POST['address'] ?? '');
+                $phone = trim($_POST['phone'] ?? '');
+                $email = trim($_POST['email'] ?? '');
+                $manager_username = trim($_POST['manager_username'] ?? '');
+                $manager_password = $_POST['manager_password'] ?? '';
+                $manager_full_name = trim($_POST['manager_full_name'] ?? '');
+                
+                if (empty($branch_id) || empty($branch_name) || empty($branch_code) || empty($manager_username) || empty($manager_full_name)) {
+                    $error = 'Please fill in all required fields.';
+                } else {
+                    try {
+                        // Check if password should be updated
+                        if (!empty($manager_password)) {
+                            $hashed_password = password_hash($manager_password, PASSWORD_DEFAULT);
+                            $stmt = $db->prepare("UPDATE branches SET branch_name = ?, branch_code = ?, address = ?, phone = ?, email = ?, manager_username = ?, manager_password = ?, manager_full_name = ? WHERE id = ?");
+                            $stmt->execute([$branch_name, $branch_code, $address, $phone, $email, $manager_username, $hashed_password, $manager_full_name, $branch_id]);
+                        } else {
+                            // Update without changing password
+                            $stmt = $db->prepare("UPDATE branches SET branch_name = ?, branch_code = ?, address = ?, phone = ?, email = ?, manager_username = ?, manager_full_name = ? WHERE id = ?");
+                            $stmt->execute([$branch_name, $branch_code, $address, $phone, $email, $manager_username, $manager_full_name, $branch_id]);
+                        }
+                        
+                        $auth->logActivity('admin', $user_info['id'], 'Update Branch', "Updated branch: $branch_name");
+                        $message = 'Branch updated successfully!';
+                    } catch (PDOException $e) {
+                        if (strpos($e->getMessage(), 'UNIQUE constraint failed') !== false) {
+                            $error = 'Branch code or manager username already exists.';
+                        } else {
+                            $error = 'Error updating branch. Please try again.';
+                        }
+                    }
+                }
+                break;
                 
             case 'update_status':
                 $branch_id = $_POST['branch_id'] ?? '';
@@ -265,21 +303,36 @@ $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                             </div>
                                         </div>
                                         
-                                        <div class="mt-3 d-flex justify-content-between">
-                                            <form method="POST" class="d-inline">
-                                                <input type="hidden" name="action" value="update_status">
-                                                <input type="hidden" name="branch_id" value="<?= $branch['id'] ?>">
-                                                <input type="hidden" name="status" value="<?= $branch['status'] === 'active' ? 'inactive' : 'active' ?>">
-                                                <button type="submit" class="btn btn-sm btn-<?= $branch['status'] === 'active' ? 'warning' : 'success' ?>" 
-                                                        onclick="return confirm('Are you sure you want to <?= $branch['status'] === 'active' ? 'deactivate' : 'activate' ?> this branch?')">
-                                                    <i class="fas fa-<?= $branch['status'] === 'active' ? 'pause' : 'play' ?> me-1"></i>
-                                                    <?= $branch['status'] === 'active' ? 'Deactivate' : 'Activate' ?>
+                                        <div class="mt-3">
+                                            <!-- Buttons Row -->
+                                            <div class="d-flex gap-2 mb-2">
+                                                <!-- Edit Button -->
+                                                <button type="button" class="btn btn-sm btn-info flex-fill" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#editBranchModal"
+                                                        onclick="populateEditModal(<?= htmlspecialchars(json_encode($branch)) ?>)">
+                                                    <i class="fas fa-edit me-1"></i>Edit
                                                 </button>
-                                            </form>
+                                                
+                                                <!-- Status Toggle Button -->
+                                                <form method="POST" class="flex-fill">
+                                                    <input type="hidden" name="action" value="update_status">
+                                                    <input type="hidden" name="branch_id" value="<?= $branch['id'] ?>">
+                                                    <input type="hidden" name="status" value="<?= $branch['status'] === 'active' ? 'inactive' : 'active' ?>">
+                                                    <button type="submit" class="btn btn-sm btn-<?= $branch['status'] === 'active' ? 'warning' : 'success' ?> w-100" 
+                                                            onclick="return confirm('Are you sure you want to <?= $branch['status'] === 'active' ? 'deactivate' : 'activate' ?> this branch?')">
+                                                        <i class="fas fa-<?= $branch['status'] === 'active' ? 'pause' : 'play' ?> me-1"></i>
+                                                        <?= $branch['status'] === 'active' ? 'Deactivate' : 'Activate' ?>
+                                                    </button>
+                                                </form>
+                                            </div>
                                             
-                                            <small class="text-muted align-self-end">
-                                                Created: <?= date('M j, Y', strtotime($branch['created_at'])) ?>
-                                            </small>
+                                            <!-- Created Date -->
+                                            <div class="text-end">
+                                                <small class="text-muted">
+                                                    Created: <?= date('M j, Y', strtotime($branch['created_at'])) ?>
+                                                </small>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -362,6 +415,79 @@ $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
         </div>
     </div>
+
+    <!-- Edit Branch Modal -->
+    <div class="modal fade" id="editBranchModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-building-edit me-2"></i>Edit Branch</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="edit_branch">
+                        <input type="hidden" name="branch_id" id="edit_branch_id">
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_branch_name" class="form-label">Branch Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="edit_branch_name" name="branch_name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_branch_code" class="form-label">Branch Code <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="edit_branch_code" name="branch_code" required>
+                                <div class="form-text">Unique identifier for the branch (e.g., BR001)</div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="edit_address" class="form-label">Address</label>
+                            <textarea class="form-control" id="edit_address" name="address" rows="2"></textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_phone" class="form-label">Phone</label>
+                                <input type="text" class="form-control" id="edit_phone" name="phone">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="edit_email" name="email">
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        <h6 class="mb-3"><i class="fas fa-user-tie me-2"></i>Branch Manager Details</h6>
+                        
+                        <div class="mb-3">
+                            <label for="edit_manager_full_name" class="form-label">Manager Full Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="edit_manager_full_name" name="manager_full_name" required>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_manager_username" class="form-label">Manager Username <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="edit_manager_username" name="manager_username" required>
+                                <div class="form-text">This will be used for branch manager login</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_manager_password" class="form-label">Manager Password <small class="text-muted">(leave blank to keep current)</small></label>
+                                <input type="password" class="form-control" id="edit_manager_password" name="manager_password" placeholder="Leave blank to keep current password">
+                                <div class="form-text">Leave blank to keep current password</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-2"></i>Update Branch
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -382,6 +508,20 @@ $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 this.setCustomValidity('');
             }
         });
+
+        // Function to populate edit modal with branch data
+        function populateEditModal(branch) {
+            document.getElementById('edit_branch_id').value = branch.id;
+            document.getElementById('edit_branch_name').value = branch.branch_name;
+            document.getElementById('edit_branch_code').value = branch.branch_code;
+            document.getElementById('edit_address').value = branch.address || '';
+            document.getElementById('edit_phone').value = branch.phone || '';
+            document.getElementById('edit_email').value = branch.email || '';
+            document.getElementById('edit_manager_full_name').value = branch.manager_full_name;
+            document.getElementById('edit_manager_username').value = branch.manager_username;
+            // Clear password field for security
+            document.getElementById('edit_manager_password').value = '';
+        }
     </script>
 </body>
 </html>

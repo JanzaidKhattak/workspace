@@ -1,9 +1,12 @@
 <?php
 class Database {
-    private $db_path = '../data/typing_center.db';
+    private $db_path;
     private $connection;
     
     public function __construct() {
+        // Use __DIR__ to get current file's directory, then go to data folder
+        $this->db_path = __DIR__ . '/../data/typing_center.db';
+        
         // Ensure the data directory exists
         $dir = dirname($this->db_path);
         if (!is_dir($dir)) {

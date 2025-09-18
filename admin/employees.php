@@ -48,6 +48,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 break;
+
+            case 'edit_employee':
+                $employee_id = $_POST['employee_id'] ?? '';
+                $branch_id = $_POST['branch_id'] ?? '';
+                $employee_code = trim($_POST['employee_code'] ?? '');
+                $username = trim($_POST['username'] ?? '');
+                $password = $_POST['password'] ?? '';
+                $full_name = trim($_POST['full_name'] ?? '');
+                $email = trim($_POST['email'] ?? '');
+                $phone = trim($_POST['phone'] ?? '');
+                $basic_salary = floatval($_POST['basic_salary'] ?? 0);
+                $commission_rate = floatval($_POST['commission_rate'] ?? 0);
+                $hire_date = $_POST['hire_date'] ?? '';
+                
+                if (empty($employee_id) || empty($branch_id) || empty($employee_code) || empty($username) || empty($full_name) || empty($hire_date)) {
+                    $error = 'Please fill in all required fields.';
+                } else {
+                    try {
+                        // Check if password should be updated
+                        if (!empty($password)) {
+                            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                            $stmt = $db->prepare("UPDATE employees SET branch_id = ?, employee_code = ?, username = ?, password = ?, full_name = ?, email = ?, phone = ?, basic_salary = ?, commission_rate = ?, hire_date = ? WHERE id = ?");
+                            $stmt->execute([$branch_id, $employee_code, $username, $hashed_password, $full_name, $email, $phone, $basic_salary, $commission_rate, $hire_date, $employee_id]);
+                        } else {
+                            // Update without changing password
+                            $stmt = $db->prepare("UPDATE employees SET branch_id = ?, employee_code = ?, username = ?, full_name = ?, email = ?, phone = ?, basic_salary = ?, commission_rate = ?, hire_date = ? WHERE id = ?");
+                            $stmt->execute([$branch_id, $employee_code, $username, $full_name, $email, $phone, $basic_salary, $commission_rate, $hire_date, $employee_id]);
+                        }
+                        
+                        $auth->logActivity('admin', $user_info['id'], 'Update Employee', "Updated employee: $full_name");
+                        $message = 'Employee updated successfully!';
+                    } catch (PDOException $e) {
+                        if (strpos($e->getMessage(), 'UNIQUE constraint failed') !== false) {
+                            $error = 'Employee code or username already exists.';
+                        } else {
+                            $error = 'Error updating employee. Please try again.';
+                        }
+                    }
+                }
+                break;
                 
             case 'update_status':
                 $employee_id = $_POST['employee_id'] ?? '';
@@ -256,6 +296,15 @@ $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                             </span>
                                         </td>
                                         <td>
+                                            <!-- Edit Button -->
+                                            <button type="button" class="btn btn-sm btn-info me-1" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#editEmployeeModal"
+                                                    onclick="populateEditModal(<?= htmlspecialchars(json_encode($employee)) ?>)">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            
+                                            <!-- Status Toggle Button -->
                                             <form method="POST" class="d-inline">
                                                 <input type="hidden" name="action" value="update_status">
                                                 <input type="hidden" name="employee_id" value="<?= $employee['id'] ?>">
@@ -358,6 +407,90 @@ $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
         </div>
     </div>
+
+    <!-- Edit Employee Modal -->
+    <div class="modal fade" id="editEmployeeModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-user-edit me-2"></i>Edit Employee</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="edit_employee">
+                        <input type="hidden" name="employee_id" id="edit_employee_id">
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_branch_id" class="form-label">Branch <span class="text-danger">*</span></label>
+                                <select class="form-control" id="edit_branch_id" name="branch_id" required>
+                                    <option value="">Select Branch</option>
+                                    <?php foreach ($branches as $branch): ?>
+                                        <option value="<?= $branch['id'] ?>"><?= htmlspecialchars($branch['branch_name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_employee_code" class="form-label">Employee Code <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="edit_employee_code" name="employee_code" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_full_name" class="form-label">Full Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="edit_full_name" name="full_name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_hire_date" class="form-label">Hire Date <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="edit_hire_date" name="hire_date" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_username" class="form-label">Username <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="edit_username" name="username" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_password" class="form-label">Password <small class="text-muted">(leave blank to keep current)</small></label>
+                                <input type="password" class="form-control" id="edit_password" name="password" placeholder="Leave blank to keep current password">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="edit_email" name="email">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_phone" class="form-label">Phone</label>
+                                <input type="text" class="form-control" id="edit_phone" name="phone">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_basic_salary" class="form-label">Basic Salary</label>
+                                <input type="number" class="form-control" id="edit_basic_salary" name="basic_salary" step="0.01" min="0" value="0">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_commission_rate" class="form-label">Commission Rate (%)</label>
+                                <input type="number" class="form-control" id="edit_commission_rate" name="commission_rate" step="0.01" min="0" max="100" value="0">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-2"></i>Update Employee
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -372,6 +505,22 @@ $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Set default hire date to today
         document.getElementById('hire_date').value = new Date().toISOString().split('T')[0];
+
+        // Function to populate edit modal with employee data
+        function populateEditModal(employee) {
+            document.getElementById('edit_employee_id').value = employee.id;
+            document.getElementById('edit_branch_id').value = employee.branch_id;
+            document.getElementById('edit_employee_code').value = employee.employee_code;
+            document.getElementById('edit_full_name').value = employee.full_name;
+            document.getElementById('edit_username').value = employee.username;
+            document.getElementById('edit_email').value = employee.email || '';
+            document.getElementById('edit_phone').value = employee.phone || '';
+            document.getElementById('edit_basic_salary').value = employee.basic_salary;
+            document.getElementById('edit_commission_rate').value = employee.commission_rate;
+            document.getElementById('edit_hire_date').value = employee.hire_date;
+            // Clear password field
+            document.getElementById('edit_password').value = '';
+        }
     </script>
 </body>
 </html>
