@@ -6,7 +6,7 @@
 function getCurrencySymbol($currency_code = 'USD') {
     $symbols = [
         'USD' => '$',
-        'AED' => 'د.إ',
+        'AED' => 'AED',
         'PKR' => '₨',
         'INR' => '₹',
         'EUR' => '€'
@@ -17,7 +17,7 @@ function getCurrencySymbol($currency_code = 'USD') {
 
 function formatCurrency($amount, $currency_code = 'USD') {
     $symbol = getCurrencySymbol($currency_code);
-    return $symbol . number_format($amount, 2);
+    return $symbol . number_format($amount, 0);
 }
 
 function getCurrentCurrency($db) {

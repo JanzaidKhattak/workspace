@@ -278,7 +278,7 @@ $top_customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     <i class="fas fa-chart-line"></i>
                                 </div>
                                 <div>
-                                    <h3 class="mb-0"><?= $currency ?><?= number_format($overview['avg_receipt_value'], 0) ?></h3>
+                                    <h3 class="mb-0"><?= htmlspecialchars($currency) ?><?= number_format($overview['avg_receipt_value'], 2) ?></h3>
                                     <p class="text-muted mb-0">Avg Receipt Value</p>
                                 </div>
                             </div>

@@ -160,41 +160,41 @@ class Database {
         }
         
         // Insert default services if not exists
-        $stmt = $this->connection->prepare("SELECT COUNT(*) FROM services");
-        $stmt->execute();
-        if ($stmt->fetchColumn() == 0) {
-            $services = [
-                ['Typing (per page)', 5.00, 10.00],
-                ['Photocopying (per page)', 0.50, 5.00],
-                ['Printing (per page)', 1.00, 8.00],
-                ['Scanning (per page)', 2.00, 15.00],
-                ['Lamination (per page)', 3.00, 20.00],
-                ['Binding', 10.00, 25.00]
-            ];
+        // $stmt = $this->connection->prepare("SELECT COUNT(*) FROM services");
+        // $stmt->execute();
+        // if ($stmt->fetchColumn() == 0) {
+        //     $services = [
+        //         ['Typing (per page)', 5.00, 10.00],
+        //         ['Photocopying (per page)', 0.50, 5.00],
+        //         ['Printing (per page)', 1.00, 8.00],
+        //         ['Scanning (per page)', 2.00, 15.00],
+        //         ['Lamination (per page)', 3.00, 20.00],
+        //         ['Binding', 10.00, 25.00]
+        //     ];
             
-            $stmt = $this->connection->prepare("INSERT INTO services (service_name, service_price, commission_rate) VALUES (?, ?, ?)");
-            foreach ($services as $service) {
-                $stmt->execute($service);
-            }
-        }
+        //     $stmt = $this->connection->prepare("INSERT INTO services (service_name, service_price, commission_rate) VALUES (?, ?, ?)");
+        //     foreach ($services as $service) {
+        //         $stmt->execute($service);
+        //     }
+        // }
         
         // Insert default settings if not exists
-        $stmt = $this->connection->prepare("SELECT COUNT(*) FROM settings");
-        $stmt->execute();
-        if ($stmt->fetchColumn() == 0) {
-            $settings = [
-                ['company_name', 'Typing Center Management System'],
-                ['company_address', '123 Main Street, City, Country'],
-                ['company_phone', '+1-234-567-8900'],
-                ['receipt_header', 'Thank you for choosing our services'],
-                ['receipt_footer', 'Visit us again!']
-            ];
+        // $stmt = $this->connection->prepare("SELECT COUNT(*) FROM settings");
+        // $stmt->execute();
+        // if ($stmt->fetchColumn() == 0) {
+        //     $settings = [
+        //         ['company_name', 'Typing Center Management System'],
+        //         ['company_address', '123 Main Street, City, Country'],
+        //         ['company_phone', '+1-234-567-8900'],
+        //         ['receipt_header', 'Thank you for choosing our services'],
+        //         ['receipt_footer', 'Visit us again!']
+        //     ];
             
-            $stmt = $this->connection->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?)");
-            foreach ($settings as $setting) {
-                $stmt->execute($setting);
-            }
-        }
+        //     $stmt = $this->connection->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?)");
+        //     foreach ($settings as $setting) {
+        //         $stmt->execute($setting);
+        //     }
+        // }
     }
 }
 ?>

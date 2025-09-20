@@ -247,7 +247,7 @@ $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 </div>
                                 <div>
                                     <h3 class="mb-0"><?= formatCurrency($stats['today_commission'], $current_currency) ?></h3>
-                                    <p class="text-muted mb-0">Today's Commission</p>
+                                    <p class="text-muted mb-0">Today's Comm</p>
                                 </div>
                             </div>
                         </div>

@@ -1,6 +1,8 @@
 <?php
 require_once '../config/database.php';
 require_once '../includes/auth.php';
+require_once '../includes/currency_helper.php';
+
 
 $database = new Database();
 $auth = new Auth($database);
@@ -9,6 +11,11 @@ $auth->requireRole(['admin']);
 
 $user_info = $auth->getUserInfo();
 $db = $database->getConnection();
+$currency_code = getCurrentCurrency($db);
+function showCurrency($amount, $currency_code) {
+    return formatCurrency($amount, $currency_code);
+}
+
 
 // Get filter parameters
 $start_date = $_GET['start_date'] ?? date('Y-m-01');
@@ -267,39 +274,39 @@ switch ($report_type) {
                 <?php if ($report_type === 'overview'): ?>
                     <!-- Overview Report -->
                     <div class="row mb-4">
-                        <div class="col-md-3">
-                            <div class="card report-card text-center">
-                                <div class="card-body">
-                                    <h3 class="text-dark"><?= $overview['total_receipts'] ?></h3>
-                                    <p class="mb-0">Total Receipts</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card report-card text-center">
-                                <div class="card-body">
-                                    <h3 class="text-dark">$<?= number_format($overview['total_revenue'], 2) ?></h3>
-                                    <p class="mb-0">Total Revenue</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card report-card text-center">
-                                <div class="card-body">
-                                    <h3 class="text-dark">$<?= number_format($overview['total_commission'], 2) ?></h3>
-                                    <p class="mb-0">Total Commission</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card report-card text-center">
-                                <div class="card-body">
-                                    <h3 class="text-dark">$<?= number_format($overview['avg_receipt_value'], 2) ?></h3>
-                                    <p class="mb-0">Avg Receipt Value</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    <div class="col-md-3">
+        <div class="card report-card text-center">
+            <div class="card-body">
+                <h3 class="text-dark"><?= $overview['total_receipts'] ?></h3>
+                <p class="mb-0">Total Receipts</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card report-card text-center">
+            <div class="card-body">
+                <h3 class="text-dark"><?= showCurrency($overview['total_revenue'], $currency_code) ?></h3>
+                <p class="mb-0">Total Revenue</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card report-card text-center">
+            <div class="card-body">
+                <h3 class="text-dark"><?= showCurrency($overview['total_commission'], $currency_code) ?></h3>
+                <p class="mb-0">Total Commission</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card report-card text-center">
+            <div class="card-body">
+                <h3 class="text-dark"><?= showCurrency($overview['avg_receipt_value'], $currency_code) ?></h3>
+                <p class="mb-0">Avg Receipt Value</p>
+            </div>
+        </div>
+    </div>
+</div>
                     
                     <!-- Daily Breakdown -->
                     <div class="card">
@@ -309,23 +316,23 @@ switch ($report_type) {
                         <div class="card-body">
                             <div class="table-responsive">
                                 <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Date</th>
-                                            <th>Receipts</th>
-                                            <th>Revenue</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($daily_data as $day): ?>
-                                            <tr>
-                                                <td><?= date('M j, Y', strtotime($day['date'])) ?></td>
-                                                <td><?= $day['receipts'] ?></td>
-                                                <td>$<?= number_format($day['revenue'], 2) ?></td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Receipts</th>
+            <th>Revenue</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php foreach ($daily_data as $day): ?>
+            <tr>
+                <td><?= date('M j, Y', strtotime($day['date'])) ?></td>
+                <td><?= $day['receipts'] ?></td>
+                <td><?= showCurrency($day['revenue'], $currency_code) ?></td>
+            </tr>
+        <?php endforeach; ?>
+    </tbody>
+</table>
                             </div>
                         </div>
                     </div>

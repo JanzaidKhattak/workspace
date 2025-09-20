@@ -38,75 +38,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 
                 // Handle logo upload
-                if (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] === UPLOAD_ERR_OK) {
-                    $upload_fs_dir = realpath(__DIR__ . '/../assets/uploads/logos');
-                    $max_size = 2 * 1024 * 1024; // 2MB limit
-                    
-                    $file_info = $_FILES['logo_file'];
-                    $file_size = $file_info['size'];
-                    $tmp_path = $file_info['tmp_name'];
-                    
-                    if ($file_size > $max_size) {
-                        $error = 'File too large. Maximum size is 2MB.';
-                        break;
-                    }
-                    
-                    // Secure content validation using finfo
-                    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-                    $detected_mime = finfo_file($finfo, $tmp_path);
-                    finfo_close($finfo);
-                    
-                    // Map MIME types to safe extensions
-                    $mime_to_ext = [
-                        'image/jpeg' => 'jpg',
-                        'image/png' => 'png', 
-                        'image/gif' => 'gif',
-                        'image/webp' => 'webp'
-                    ];
-                    
-                    if (!array_key_exists($detected_mime, $mime_to_ext)) {
-                        $error = 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.';
-                        break;
-                    }
-                    
-                    // Additional validation with getimagesize for extra security
-                    $image_info = getimagesize($tmp_path);
-                    if ($image_info === false) {
-                        $error = 'Invalid image file.';
-                        break;
-                    }
-                    
-                    // Generate secure filename with forced extension based on detected MIME
-                    $safe_extension = $mime_to_ext[$detected_mime];
-                    $new_filename = 'logo_' . time() . '_' . mt_rand(1000, 9999) . '.' . $safe_extension;
-                    $upload_path = $upload_fs_dir . '/' . $new_filename;
-                    
-                    if (move_uploaded_file($tmp_path, $upload_path)) {
-                        // Delete old logo file if it exists and is not a URL
-                        $old_logo = $settings_data['logo_url'] ?? '';
-                        if (!empty($old_logo) && !filter_var($old_logo, FILTER_VALIDATE_URL)) {
-                            $old_path = __DIR__ . '/..' . $old_logo;
-                            if (file_exists($old_path)) {
-                                unlink($old_path);
-                            }
-                        }
-                        
-                        $logo_url = '/uploads/logos/' . $new_filename; // Leading slash for absolute path
-                    } else {
-                        $error = 'Failed to upload logo file.';
-                        break;
-                    }
-                } else if (isset($_POST['remove_logo']) && $_POST['remove_logo'] === '1') {
-                    // Remove existing logo
+                // Handle logo upload
+if (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] === UPLOAD_ERR_OK) {
+    $upload_fs_dir = realpath(__DIR__ . '/../assets/uploads/logos');
+    $max_size = 2 * 1024 * 1024; // 2MB limit
+    
+    $file_info = $_FILES['logo_file'];
+    $file_size = $file_info['size'];
+    $tmp_path = $file_info['tmp_name'];
+    
+    if ($file_size > $max_size) {
+        $error = 'File too large. Maximum size is 2MB.';
+    } else {
+        // Validate MIME type
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $detected_mime = finfo_file($finfo, $tmp_path);
+        finfo_close($finfo);
+
+        $mime_to_ext = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp'
+        ];
+
+        if (!array_key_exists($detected_mime, $mime_to_ext)) {
+            $error = 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.';
+        } else {
+            $image_info = getimagesize($tmp_path);
+            if ($image_info === false) {
+                $error = 'Invalid image file.';
+            } else {
+                // Generate safe filename
+                $safe_extension = $mime_to_ext[$detected_mime];
+                $new_filename = 'logo_' . time() . '_' . mt_rand(1000, 9999) . '.' . $safe_extension;
+                $upload_path = $upload_fs_dir . '/' . $new_filename;
+
+                if (move_uploaded_file($tmp_path, $upload_path)) {
+                    // Delete old logo if exists
                     $old_logo = $settings_data['logo_url'] ?? '';
                     if (!empty($old_logo) && !filter_var($old_logo, FILTER_VALIDATE_URL)) {
                         $old_path = __DIR__ . '/..' . $old_logo;
-                        if (file_exists($old_path)) {
-                            unlink($old_path);
-                        }
+                        if (file_exists($old_path)) unlink($old_path);
                     }
-                    $logo_url = '';
+
+                    // Correct path for browser (root-relative)
+                    $logo_url = '/assets/uploads/logos/' . $new_filename;
+                } else {
+                    $error = 'Failed to upload logo file.';
                 }
+            }
+        }
+    }
+} elseif (isset($_POST['remove_logo']) && $_POST['remove_logo'] === '1') {
+    // Remove existing logo
+    $old_logo = $settings_data['logo_url'] ?? '';
+    if (!empty($old_logo) && !filter_var($old_logo, FILTER_VALIDATE_URL)) {
+        $old_path = __DIR__ . '/..' . $old_logo;
+        if (file_exists($old_path)) unlink($old_path);
+    }
+    $logo_url = '';
+}
+
                 
                 try {
                     $settings = [
@@ -332,7 +325,7 @@ $db_size_mb = round($db_size / (1024 * 1024), 2);
                                         <label for="currency" class="form-label">System Currency</label>
                                         <select class="form-select" id="currency" name="currency">
                                             <option value="USD" <?= ($settings_data['currency'] ?? 'USD') === 'USD' ? 'selected' : '' ?>>USD ($) - US Dollar</option>
-                                            <option value="AED" <?= ($settings_data['currency'] ?? '') === 'AED' ? 'selected' : '' ?>>AED (د.إ) - UAE Dirham</option>
+                                            <option value="AED" <?= ($settings_data['currency'] ?? '') === 'AED' ? 'selected' : '' ?>>AED - UAE Dirham</option>
                                             <option value="PKR" <?= ($settings_data['currency'] ?? '') === 'PKR' ? 'selected' : '' ?>>PKR (₨) - Pakistani Rupee</option>
                                             <option value="INR" <?= ($settings_data['currency'] ?? '') === 'INR' ? 'selected' : '' ?>>INR (₹) - Indian Rupee</option>
                                             <option value="EUR" <?= ($settings_data['currency'] ?? '') === 'EUR' ? 'selected' : '' ?>>EUR (€) - Euro</option>

@@ -111,7 +111,7 @@ $recent_activities = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <div class="row">
             <!-- Sidebar -->
             <div class="col-md-3 col-lg-2 sidebar p-3">
-                <h4 class="mb-4"><i class="fas fa-keyboard me-2"></i>Admin Panel</h4>
+                <h4 class="mb-4"><!--<i class="fas fa-keyboard me-2"></i>-->Admin Panel</h4>
                 
                 <div class="user-info bg-white bg-opacity-10 rounded p-3 mb-4">
                     <div>
@@ -193,7 +193,7 @@ $recent_activities = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 </div>
                                 <div>
                                     <h3 class="mb-0"><?= $stats['monthly_receipts'] ?></h3>
-                                    <p class="text-muted mb-0">This Month's Receipts</p>
+                                    <p class="text-muted mb-0">Monthly Receipts</p>
                                 </div>
                             </div>
                         </div>

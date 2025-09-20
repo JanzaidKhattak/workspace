@@ -99,6 +99,8 @@ $high_commission_receipts = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <title>My Commissions - Employee</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
     <style>
         body { background-color: #f8f9fa; }
         .sidebar {
@@ -206,8 +208,8 @@ $high_commission_receipts = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     <i class="fas fa-coins"></i>
                                 </div>
                                 <div>
-                                    <h3 class="mb-0"><?= $currency ?><?= number_format($stats['today'], 2) ?></h3>
-                                    <p class="text-muted mb-0">Today's Commission</p>
+                                    <h3 class="mb-0"><?= $currency ?><?= number_format($stats['today'], 0) ?></h3>
+                                    <p class="text-muted mb-0">Today's Comm</p>
                                 </div>
                             </div>
                         </div>
@@ -217,10 +219,11 @@ $high_commission_receipts = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <div class="card stat-card shadow-sm">
                             <div class="card-body d-flex align-items-center">
                                 <div class="stat-icon bg-info-gradient me-3">
-                                    <i class="fas fa-calendar-month"></i>
+                                    <i class="fas fa-calendar-alt"></i>
+
                                 </div>
                                 <div>
-                                    <h3 class="mb-0"><?= $currency ?><?= number_format($stats['this_month'], 2) ?></h3>
+                                    <h3 class="mb-0"><?= $currency ?><?= number_format($stats['this_month'], 0) ?></h3>
                                     <p class="text-muted mb-0">This Month</p>
                                 </div>
                             </div>
@@ -234,7 +237,7 @@ $high_commission_receipts = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     <i class="fas fa-calendar-alt"></i>
                                 </div>
                                 <div>
-                                    <h3 class="mb-0"><?= $currency ?><?= number_format($stats['last_month'], 2) ?></h3>
+                                    <h3 class="mb-0"><?= $currency ?><?= number_format($stats['last_month'], 0) ?></h3>
                                     <p class="text-muted mb-0">Last Month</p>
                                 </div>
                             </div>
@@ -248,7 +251,7 @@ $high_commission_receipts = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     <i class="fas fa-chart-line"></i>
                                 </div>
                                 <div>
-                                    <h3 class="mb-0"><?= $currency ?><?= number_format($stats['total'], 2) ?></h3>
+                                    <h3 class="mb-0"><?= $currency ?><?= number_format($stats['total'], 0) ?></h3>
                                     <p class="text-muted mb-0">Total Earned</p>
                                 </div>
                             </div>
@@ -374,9 +377,9 @@ $high_commission_receipts = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                                     <tr>
                                                         <td><code><?= htmlspecialchars($receipt['receipt_number']) ?></code></td>
                                                         <td><?= htmlspecialchars($receipt['customer_name']) ?></td>
-                                                        <td><?= $currency ?><?= number_format($receipt['total_amount'], 2) ?></td>
+                                                        <td><?= $currency ?><?= number_format($receipt['total_amount'], 0) ?></td>
                                                         <td class="text-success">
-                                                            <strong><?= $currency ?><?= number_format($receipt['total_commission'], 2) ?></strong>
+                                                            <strong><?= $currency ?><?= number_format($receipt['total_commission'], 0) ?></strong>
                                                         </td>
                                                         <td>
                                                             <small><?= date('M j, Y', strtotime($receipt['created_at'])) ?></small>

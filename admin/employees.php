@@ -1,17 +1,23 @@
 <?php
 require_once '../config/database.php';
 require_once '../includes/auth.php';
+require_once '../includes/currency_helper.php';
 
+// Database setup
 $database = new Database();
-$auth = new Auth($database);
-
-$auth->requireRole(['admin']);
-
-$user_info = $auth->getUserInfo();
 $db = $database->getConnection();
+
+// Auth setup
+$auth = new Auth($database);
+$auth->requireRole(['admin']);
+$user_info = $auth->getUserInfo();
+
+// Currency setup
+$current_currency = getCurrentCurrency($db);
 
 $message = '';
 $error = '';
+
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -364,17 +370,24 @@ if ($show_credentials) {
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <div>
-                                                <strong>$<?= number_format($employee['basic_salary'], 2) ?></strong> <small class="text-muted">salary</small><br>
-                                                <strong><?= number_format($employee['commission_rate'], 2) ?>%</strong> <small class="text-muted">commission</small>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div>
-                                                <strong><?= $employee['monthly_receipts'] ?></strong> <small class="text-muted">receipts</small><br>
-                                                <strong>$<?= number_format($employee['monthly_commission'], 2) ?></strong> <small class="text-muted">commission</small>
-                                            </div>
-                                        </td>
+    <div>
+        <strong><?= formatCurrency($employee['basic_salary'], $current_currency) ?></strong> 
+        <small class="text-muted">salary</small><br>
+
+        <strong><?= number_format($employee['commission_rate'], 2) ?>%</strong> 
+        <small class="text-muted">commission</small>
+    </div>
+</td>
+<td>
+    <div>
+        <strong><?= $employee['monthly_receipts'] ?></strong> 
+        <small class="text-muted">receipts</small><br>
+
+        <strong><?= formatCurrency($employee['monthly_commission'], $current_currency) ?></strong> 
+        <small class="text-muted">commission</small>
+    </div>
+</td>
+
                                         <td>
                                             <span class="badge bg-<?= $employee['status'] === 'active' ? 'success' : 'secondary' ?>">
                                                 <?= ucfirst($employee['status']) ?>

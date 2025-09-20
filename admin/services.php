@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../includes/auth.php';
+require_once '../includes/currency_helper.php';
 
 $database = new Database();
 $auth = new Auth($database);
@@ -9,6 +10,11 @@ $auth->requireRole(['admin']);
 
 $user_info = $auth->getUserInfo();
 $db = $database->getConnection();
+
+$currency_code = getCurrentCurrency($db);  // Get currency code from settings
+$currency = getCurrencySymbol($currency_code); // Get currency symbol
+
+
 
 $message = '';
 $error = '';
@@ -211,7 +217,7 @@ $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                         <small class="text-muted">Total uses: <?= $service['total_usage'] ?></small>
                                     </td>
                                     <td>
-                                        <strong>$<?= number_format($service['service_price'], 2) ?></strong>
+                                        <strong><?= htmlspecialchars($currency) ?><?= number_format($service['service_price'], 2) ?></strong>
                                     </td>
                                     <td>
                                         <strong><?= number_format($service['commission_rate'], 2) ?>%</strong>
@@ -220,7 +226,7 @@ $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                         <strong><?= $service['monthly_usage'] ?></strong> <small class="text-muted">uses</small>
                                     </td>
                                     <td>
-                                        <strong>$<?= number_format($service['monthly_revenue'], 2) ?></strong>
+                                        <strong><?= htmlspecialchars($currency) ?><?= number_format($service['monthly_revenue'], 2) ?></strong>
                                     </td>
                                     <td>
                                         <span class="badge bg-<?= $service['status'] === 'active' ? 'success' : 'secondary' ?>">
