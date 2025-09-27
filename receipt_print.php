@@ -82,17 +82,58 @@ if (!$receipt_id) {
             overflow: hidden;
         }
         .receipt-header {
-            background: #343a40;
-            color: white;
-            padding: 30px;
-            text-align: center;
-            position: relative;
-            border-bottom: 2px solid #dee2e6;
-        }
-        .company-logo {
-            max-height: 60px;
-            margin-bottom: 15px;
-        }
+    background: #343a40;
+    color: white;
+    padding: 13px 20px;
+    display: grid;
+    grid-template-columns: 120px 1fr 150px; /* 3 fixed columns */
+    align-items: center;
+    border-bottom: 2px solid #dee2e6;
+    text-align: center;
+}
+       .company-logo {
+    width: 130px;
+    height: 130px;
+    background: #ffffff;
+    border-radius: 50%;     /* Circle */
+    object-fit: cover;    /* Crop nahi hoga */
+    display: block;
+    margin: 0 auto;         /* Center horizontally */
+}
+.header-center {
+    text-align: center;
+}
+.header-center h2 {
+    margin: 0;
+    font-size: 1.6rem;
+}
+.header-center p {
+    margin: 2px 0;
+}
+.custom-note {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: #fff;
+    font-size: 0.9rem;
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 5px;
+}
+
+/* Column 3: Status */
+.header-right {
+    text-align: right;
+}
+.status-badge {
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 12px;
+}
+.status-paid { background-color: #28a745; }
+.status-pending { background-color: #ffc107; color: #000; }
+.status-cancelled { background-color: #dc3545; }
         .receipt-body {
             padding: 30px;
         }
@@ -150,40 +191,19 @@ if (!$receipt_id) {
             color: #666;
             font-style: italic;
         }
-        .status-badge {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-weight: bold;
-            text-transform: uppercase;
-            font-size: 12px;
-        }
-        .status-paid { background-color: #28a745; }
-        .status-pending { background-color: #ffc107; color: #000; }
-        .status-cancelled { background-color: #dc3545; }
+       @media print {
+  body {
+    -webkit-print-color-adjust: exact !important; /* Chrome, Safari */
+    print-color-adjust: exact !important;        /* Standard property */
+  }
+
+  .receipt-header, .total-section, .items-table th {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
         
-        @media print {
-            body { background: white; }
-            .receipt-container { 
-                box-shadow: none; 
-                border-radius: 0;
-                margin: 0;
-                max-width: none;
-            }
-            .print-hide { display: none; }
-        }
-        
-        .print-actions {
-            text-align: center;
-            padding: 20px;
-            background: white;
-            margin: 20px auto;
-            max-width: 800px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
     </style>
 </head>
 <body>
@@ -198,45 +218,43 @@ if (!$receipt_id) {
             </div>
         </div>
     <?php else: ?>
-        <!-- Print Actions -->
-        <div class="print-actions print-hide">
-            <button onclick="window.print()" class="btn btn-primary btn-lg me-2">
-                <i class="fas fa-print me-2"></i>Print Receipt
-            </button>
-            <button onclick="shareWhatsApp()" class="btn btn-success btn-lg me-2">
-                <i class="fa-brands fa-whatsapp me-2"></i>Share on WhatsApp
-            </button>
-            <a href="javascript:history.back()" class="btn btn-secondary btn-lg">
-                <i class="fas fa-arrow-left me-2"></i>Back
-            </a>
-        </div>
         
         <!-- Receipt -->
         <div class="receipt-container">
             <!-- Receipt Header -->
             <div class="receipt-header">
-                <span class="status-badge status-<?= $receipt['payment_status'] ?>">
-                    <?= ucfirst($receipt['payment_status']) ?>
-                </span>
-                
-                <?php if (!empty($settings['logo_url'])): ?>
-                    <img src="<?= htmlspecialchars($settings['logo_url'], ENT_QUOTES, 'UTF-8') ?>" alt="Company Logo" class="company-logo">
-                <?php endif; ?>
-                
-                <h2 class="mb-1"><?= htmlspecialchars($settings['company_name'] ?? 'Typing Center') ?></h2>
-                <?php if (!empty($settings['company_address'])): ?>
-                    <p class="mb-1"><?= htmlspecialchars($settings['company_address']) ?></p>
-                <?php endif; ?>
-                <?php if (!empty($settings['company_phone'])): ?>
-                    <p class="mb-3"><?= htmlspecialchars($settings['company_phone']) ?></p>
-                <?php endif; ?>
-                
-                <?php if (!empty($settings['receipt_header'])): ?>
-                    <div class="alert alert-light d-inline-block mb-0" style="background: rgba(255,255,255,0.2); border: none; color: white;">
-                        <i class="fas fa-info-circle me-2"></i><?= htmlspecialchars($settings['receipt_header']) ?>
-                    </div>
-                <?php endif; ?>
+    <!-- Column 1: Logo -->
+    <div class="header-left">
+        <?php if (!empty($settings['logo_url'])): ?>
+            <img src="<?= htmlspecialchars($settings['logo_url'], ENT_QUOTES, 'UTF-8') ?>" 
+                 alt="Company Logo" class="company-logo">
+        <?php endif; ?>
+    </div>
+
+    <!-- Column 2: Company Info -->
+    <div class="header-center">
+        <h2><?= htmlspecialchars($settings['company_name'] ?? 'Typing Center') ?></h2>
+        <?php if (!empty($settings['company_address'])): ?>
+            <p><?= htmlspecialchars($settings['company_address']) ?></p>
+        <?php endif; ?>
+        <?php if (!empty($settings['company_phone'])): ?>
+            <p><?= htmlspecialchars($settings['company_phone']) ?></p>
+        <?php endif; ?>
+        <?php if (!empty($settings['receipt_header'])): ?>
+            <div class="custom-note">
+                <i class="fas fa-info-circle me-2"></i><?= htmlspecialchars($settings['receipt_header']) ?>
             </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Column 3: Status -->
+    <div class="header-right">
+        <span class="status-badge status-<?= $receipt['payment_status'] ?>">
+            <?= ucfirst($receipt['payment_status']) ?>
+        </span>
+    </div>
+</div>
+
             
             <!-- Receipt Body -->
             <div class="receipt-body">
@@ -321,19 +339,6 @@ if (!$receipt_id) {
                     <i class="fas fa-heart me-2"></i><?= htmlspecialchars($settings['receipt_footer']) ?>
                 </div>
             <?php endif; ?>
-        </div>
-        
-        <!-- Print Actions -->
-        <div class="print-actions print-hide">
-            <button onclick="window.print()" class="btn btn-primary btn-lg me-2">
-                <i class="fas fa-print me-2"></i>Print Receipt
-            </button>
-            <button onclick="shareWhatsApp()" class="btn btn-success btn-lg me-2">
-                <i class="fa-brands fa-whatsapp me-2"></i>Share on WhatsApp
-            </button>
-            <a href="javascript:history.back()" class="btn btn-secondary btn-lg">
-                <i class="fas fa-arrow-left me-2"></i>Back
-            </a>
         </div>
         <script>
         <?php if (isset($receipt)): ?>

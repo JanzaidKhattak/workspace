@@ -119,7 +119,7 @@ $top_customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <style>
         body { background-color: #f8f9fa; }
         .sidebar {
-            background: #343a40;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             min-height: 100vh;
             color: white;
         }
@@ -278,7 +278,7 @@ $top_customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     <i class="fas fa-chart-line"></i>
                                 </div>
                                 <div>
-                                    <h3 class="mb-0"><?= htmlspecialchars($currency) ?><?= number_format($overview['avg_receipt_value'], 2) ?></h3>
+                                    <h3 class="mb-0"><?= htmlspecialchars($currency) ?><?= number_format($overview['avg_receipt_value'], 0) ?></h3>
                                     <p class="text-muted mb-0">Avg Receipt Value</p>
                                 </div>
                             </div>

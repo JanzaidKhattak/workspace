@@ -4,6 +4,7 @@ class Database {
     private $connection;
     
     public function __construct() {
+        
         // Use __DIR__ to get current file's directory, then go to data folder
         $this->db_path = __DIR__ . '/../data/typing_center.db';
         
