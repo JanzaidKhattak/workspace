@@ -262,13 +262,20 @@ switch ($report_type) {
                                 <button type="submit" class="btn btn-primary me-2">
                                     <i class="fas fa-search me-1"></i>Generate Report
                                 </button>
-                                <button type="button" class="btn btn-outline-success" onclick="window.print()">
+                                <button type="button" id="printBtn" class="btn <?= (isset($_GET['start_date']) && isset($_GET['end_date'])) ? 'btn-success' : 'btn-outline-success' ?>" onclick="printReport()" <?= (isset($_GET['start_date']) && isset($_GET['end_date'])) ? '' : 'disabled' ?>>
                                     <i class="fas fa-print me-1"></i>Print
                                 </button>
                             </div>
                         </form>
                     </div>
                 </div>
+                
+                <!-- Success Message -->
+                <?php if (isset($_GET['start_date']) && isset($_GET['end_date'])): ?>
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>Report generated successfully! You can now print the report.
+                    </div>
+                <?php endif; ?>
                 
                 <!-- Report Content -->
                 <?php if ($report_type === 'overview'): ?>
@@ -450,5 +457,76 @@ switch ($report_type) {
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Print Styles -->
+    <style>
+        @media print {
+            /* Hide everything except report content */
+            .sidebar, .d-flex.justify-content-between, .card.filter-card {
+                display: none !important;
+            }
+            
+            /* Show only report content */
+            body { margin: 0; padding: 20px; font-size: 12px; }
+            .container-fluid { padding: 0; }
+            .col-md-9 { width: 100%; margin: 0; padding: 0; }
+            
+            /* Print header */
+            .print-header { display: block !important; }
+            
+            /* Optimize tables for print */
+            .table { font-size: 11px; }
+            .card { border: 1px solid #ddd; margin-bottom: 15px; }
+            .card-header { background: #f8f9fa !important; }
+            
+            /* Page breaks */
+            .card { page-break-inside: avoid; }
+            
+            /* Remove shadows and backgrounds */
+            .shadow-sm { box-shadow: none !important; }
+            .report-card { background: white !important; }
+        }
+        
+        /* Print header (hidden by default) */
+        .print-header {
+            display: none;
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 10px;
+        }
+        
+        /* Success message styling */
+        .success-message {
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+    
+    <script>
+        function printReport() {
+            // Add print header with current report info
+            const printHeader = document.createElement('div');
+            printHeader.className = 'print-header';
+            printHeader.innerHTML = `
+                <h2>System Administrator Reports</h2>
+                <p>Report Type: <?= ucwords(str_replace('_', ' ', $report_type)) ?></p>
+                <p>Report Period: <?= date('M j, Y', strtotime($start_date)) ?> - <?= date('M j, Y', strtotime($end_date)) ?></p>
+                <p>Generated on: ${new Date().toLocaleDateString()}</p>
+            `;
+            
+            // Insert header at the beginning of main content
+            const mainContent = document.querySelector('.col-md-9.col-lg-10');
+            mainContent.insertBefore(printHeader, mainContent.firstChild);
+            
+            // Print the page
+            window.print();
+            
+            // Remove the print header after printing
+            setTimeout(function() {
+                printHeader.remove();
+            }, 1000);
+        }
+    </script>
 </body>
 </html>

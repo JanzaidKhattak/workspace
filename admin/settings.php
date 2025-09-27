@@ -28,12 +28,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $receipt_header = trim($_POST['receipt_header'] ?? '');
                 $receipt_footer = trim($_POST['receipt_footer'] ?? '');
                 $currency = trim($_POST['currency'] ?? 'USD');
+                $vat_percentage = floatval($_POST['vat_percentage'] ?? 0);
                 $logo_url = $settings_data['logo_url'] ?? ''; // Keep existing logo by default
                 
                 // Validate currency - only allow specific currencies
                 $allowed_currencies = ['USD', 'AED', 'PKR', 'INR', 'EUR'];
                 if (!in_array($currency, $allowed_currencies)) {
                     $error = 'Invalid currency selection. Please choose from USD, AED, PKR, INR, or EUR.';
+                    break;
+                }
+                
+                // Validate VAT percentage
+                if ($vat_percentage < 0 || $vat_percentage > 50) {
+                    $error = 'VAT percentage must be between 0% and 50%.';
                     break;
                 }
                 
@@ -109,6 +116,7 @@ if (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] === UPLOAD_ERR_
                         'receipt_header' => $receipt_header,
                         'receipt_footer' => $receipt_footer,
                         'currency' => $currency,
+                        'vat_percentage' => $vat_percentage,
                         'logo_url' => $logo_url
                     ];
                     
@@ -331,6 +339,17 @@ $db_size_mb = round($db_size / (1024 * 1024), 2);
                                             <option value="EUR" <?= ($settings_data['currency'] ?? '') === 'EUR' ? 'selected' : '' ?>>EUR (€) - Euro</option>
                                         </select>
                                         <div class="form-text">Currency will be displayed throughout the system</div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="vat_percentage" class="form-label">VAT Percentage (%)</label>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control" id="vat_percentage" name="vat_percentage" 
+                                                   min="0" max="50" step="0.01" 
+                                                   value="<?= htmlspecialchars($settings_data['vat_percentage'] ?? '0') ?>">
+                                            <span class="input-group-text">%</span>
+                                        </div>
+                                        <div class="form-text">VAT percentage to be applied on receipts (0% to 50%). Employees can choose to apply VAT during receipt creation.</div>
                                     </div>
                                     
                                     <div class="mb-3">

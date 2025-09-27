@@ -1,4 +1,7 @@
 <?php
+// Set timezone to Dubai (UAE Standard Time - UTC+4)
+date_default_timezone_set('Asia/Dubai');
+
 class Database {
     private $db_path;
     private $connection;
@@ -91,6 +94,9 @@ class Database {
             customer_name VARCHAR(100) NOT NULL,
             customer_phone VARCHAR(20),
             customer_email VARCHAR(100),
+            subtotal DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            vat_percentage DECIMAL(5,2) DEFAULT 0.00,
+            vat_amount DECIMAL(10,2) DEFAULT 0.00,
             total_amount DECIMAL(10,2) NOT NULL,
             total_commission DECIMAL(10,2) DEFAULT 0.00,
             payment_status TEXT DEFAULT 'paid' CHECK (payment_status IN ('paid', 'pending', 'cancelled')),

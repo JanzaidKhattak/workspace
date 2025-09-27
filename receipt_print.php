@@ -311,26 +311,39 @@ if (!$receipt_id) {
                     </tbody>
                 </table>
                 
-                <!-- Total Section -->
+                <!-- Total Section with VAT Display -->
                 <div class="total-section">
                     <div class="row">
-                        <div class="col-sm-6">
-                            <h5 class="mb-1">Total Amount</h5>
-                            <p class="mb-0">Payment Status: <?= ucfirst($receipt['payment_status']) ?></p>
+                        <div class="col-sm-8">
+                            <!-- Subtotal -->
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Subtotal:</span>
+                                <span><?= formatCurrency($receipt['subtotal'], $currency) ?></span>
+                            </div>
+                            
+                            <!-- VAT Section - Always show title, but conditional value -->
+                            <?php if ($receipt['vat_percentage'] > 0): ?>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>VAT (<?= number_format($receipt['vat_percentage'], 1) ?>%):</span>
+                                    <span><?= formatCurrency($receipt['vat_amount'], $currency) ?></span>
+                                </div>
+                            <?php else: ?>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>VAT:</span>
+                                    <span>-</span>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <!-- Payment Status -->
+                            <p class="mb-0 mt-2"><small>Payment Status: <?= ucfirst($receipt['payment_status']) ?></small></p>
                         </div>
-                        <div class="col-sm-6 text-end">
+                        
+                        <div class="col-sm-4 text-end">
+                            <h5 class="mb-1">Total Amount</h5>
                             <h2 class="mb-1"><?= formatCurrency($receipt['total_amount'], $currency) ?></h2>
-                            <!-- Employee commission details removed for customer receipt -->
                         </div>
                     </div>
                 </div>
-                
-                <?php if ($receipt['notes']): ?>
-                    <div class="mt-4 p-3 bg-light rounded">
-                        <h6><i class="fas fa-sticky-note me-2"></i>Notes</h6>
-                        <p class="mb-0"><?= nl2br(htmlspecialchars($receipt['notes'])) ?></p>
-                    </div>
-                <?php endif; ?>
             </div>
             
             <!-- Receipt Footer -->

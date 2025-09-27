@@ -19,10 +19,11 @@ $employee_info = $stmt->fetch(PDO::FETCH_ASSOC);
 $stmt = $db->query("SELECT * FROM services WHERE status = 'active' ORDER BY service_name");
 $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get currency setting
-$stmt = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'currency' LIMIT 1");
-$currency_result = $stmt->fetch(PDO::FETCH_ASSOC);
-$currency = $currency_result ? $currency_result['setting_value'] : 'USD';
+// Get currency and VAT settings
+$stmt = $db->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('currency', 'vat_percentage')");
+$settings_result = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+$currency = $settings_result['currency'] ?? 'USD';
+$vat_percentage = floatval($settings_result['vat_percentage'] ?? 0);
 
 $success_message = '';
 $error_message = '';
@@ -33,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $customer_email = trim($_POST['customer_email'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
     $services_data = $_POST['services'] ?? [];
+    $apply_vat = isset($_POST['apply_vat']) ? 1 : 0;
     
     if (empty($customer_name) || empty($services_data)) {
         $error_message = 'Customer name and at least one service are required.';
@@ -51,10 +53,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$receipt_number]);
             }
             
-            $total_amount = 0;
+            $subtotal = 0;
             $total_commission = 0;
             
-            // Calculate totals
+            // Calculate subtotal and commission
             foreach ($services_data as $service_data) {
                 if (!empty($service_data['service_id']) && !empty($service_data['quantity'])) {
                     $stmt = $db->prepare("SELECT service_price, commission_rate FROM services WHERE id = ? AND status = 'active'");
@@ -67,14 +69,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $line_total = $unit_price * $quantity;
                         $commission_amount = ($line_total * $service['commission_rate']) / 100;
                         
-                        $total_amount += $line_total;
+                        $subtotal += $line_total;
                         $total_commission += $commission_amount;
                     }
                 }
             }
             
+            // Calculate VAT and total
+            $vat_amount = $apply_vat ? ($subtotal * $vat_percentage / 100) : 0;
+            $total_amount = $subtotal + $vat_amount;
+            
             // Insert receipt
-            $stmt = $db->prepare("INSERT INTO receipts (receipt_number, branch_id, employee_id, customer_name, customer_phone, customer_email, total_amount, total_commission, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO receipts (receipt_number, branch_id, employee_id, customer_name, customer_phone, customer_email, subtotal, vat_percentage, vat_amount, total_amount, total_commission, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $receipt_number,
                 $employee_info['branch_id'],
@@ -82,6 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $customer_name,
                 $customer_phone,
                 $customer_email,
+                $subtotal,
+                $apply_vat ? $vat_percentage : 0,
+                $vat_amount,
                 $total_amount,
                 $total_commission,
                 $notes
@@ -123,7 +132,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
         } catch (Exception $e) {
             $db->rollback();
-            $error_message = "Error creating receipt. Please try again.";
+            error_log("Receipt creation error: " . $e->getMessage());
+            $error_message = "Error creating receipt. Please try again. [Error: " . $e->getMessage() . "]";
         }
     }
 }
@@ -310,6 +320,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <span>Subtotal:</span>
                                         <span id="subtotal"><?= $currency ?>0.00</span>
                                     </div>
+                                    
+                                    <div class="mb-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="apply_vat" name="apply_vat" checked onchange="calculateTotal()">
+                                            <label class="form-check-label" for="apply_vat">
+                                                Apply VAT (<?= number_format($vat_percentage, 1) ?>%)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d-flex justify-content-between mb-2" id="vat-row">
+                                        <span>VAT (<?= number_format($vat_percentage, 1) ?>%):</span>
+                                        <span id="vat-amount"><?= $currency ?>0.00</span>
+                                    </div>
+                                    
                                     <div class="d-flex justify-content-between mb-2">
                                         <span>Your Commission:</span>
                                         <span id="commission"><?= $currency ?>0.00</span>
@@ -321,7 +346,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     </div>
                                     
                                     <div class="d-grid gap-2 mt-4">
-                                        <button type="submit" class="btn btn-primary btn-lg">
+                                        <button type="button" class="btn btn-warning btn-lg" onclick="showReceiptPreview()" id="previewBtn" disabled>
+                                            <i class="fas fa-eye me-2"></i>Preview Receipt
+                                        </button>
+                                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" style="display: none;" disabled>
                                             <i class="fas fa-save me-2"></i>Create Receipt
                                         </button>
                                         <a href="/employee/dashboard.php" class="btn btn-secondary">
@@ -336,11 +364,99 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </div>
+
+    <!-- Receipt Preview Modal -->
+    <div class="modal fade" id="receiptPreviewModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-eye me-2"></i>Receipt Preview - Please Review Carefully
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Important:</strong> Please review all details carefully before confirming. 
+                        Once created, this receipt cannot be deleted or modified.
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="fw-bold">Customer Information:</h6>
+                            <p class="mb-1"><strong>Name:</strong> <span id="preview-customer-name"></span></p>
+                            <p class="mb-1"><strong>Phone:</strong> <span id="preview-customer-phone"></span></p>
+                            <p class="mb-1"><strong>Email:</strong> <span id="preview-customer-email"></span></p>
+                            <p class="mb-1"><strong>Notes:</strong> <span id="preview-notes"></span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-bold">Employee Information:</h6>
+                            <p class="mb-1"><strong>Employee:</strong> <?= htmlspecialchars($employee_info['full_name']) ?></p>
+                            <p class="mb-1"><strong>Branch:</strong> <?= htmlspecialchars($employee_info['branch_name']) ?></p>
+                            <p class="mb-1"><strong>Date:</strong> <?= date('F j, Y g:i A') ?></p>
+                        </div>
+                    </div>
+                    
+                    <h6 class="fw-bold mt-3">Services:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="preview-services-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6"></div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Subtotal:</span>
+                                        <span id="preview-subtotal"></span>
+                                    </div>
+                                    <div class="d-flex justify-content-between" id="preview-vat-row" style="display: none;">
+                                        <span>VAT (<span id="preview-vat-percentage"></span>%):</span>
+                                        <span id="preview-vat-amount"></span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Your Commission:</span>
+                                        <span id="preview-commission"></span>
+                                    </div>
+                                    <hr>
+                                    <div class="d-flex justify-content-between h5">
+                                        <span>Total Amount:</span>
+                                        <span id="preview-total"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-edit me-2"></i>Edit Receipt
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="confirmCreateReceipt()" id="confirmBtn">
+                        <i class="fas fa-check me-2"></i>Confirm & Create Receipt
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let serviceIndex = 1;
         const currency = '<?= $currency ?>';
+        const vatPercentage = <?= $vat_percentage ?>;
         
         function addService() {
             const container = document.getElementById('services-container');
@@ -447,16 +563,177 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             });
             
+            // Calculate VAT
+            const applyVat = document.getElementById('apply_vat').checked;
+            const vatAmount = applyVat ? (subtotal * vatPercentage / 100) : 0;
+            const total = subtotal + vatAmount;
+            
+            // Update display
             document.getElementById('subtotal').textContent = currency + subtotal.toFixed(2);
+            document.getElementById('vat-amount').textContent = currency + vatAmount.toFixed(2);
             document.getElementById('commission').textContent = currency + totalCommission.toFixed(2);
-            document.getElementById('total').textContent = currency + subtotal.toFixed(2);
+            document.getElementById('total').textContent = currency + total.toFixed(2);
+            
+            // Show/hide VAT row based on checkbox
+            const vatRow = document.getElementById('vat-row');
+            if (applyVat && vatPercentage > 0) {
+                vatRow.style.display = 'flex';
+            } else {
+                vatRow.style.display = 'none';
+            }
+            
+            // Enable/disable preview button based on form validation
+            validateForm();
         }
         
-        // Add change event listeners to quantity inputs
-        document.addEventListener('change', function(e) {
-            if (e.target.classList.contains('quantity-input')) {
-                calculateTotal();
+        // Form validation function
+        function validateForm() {
+            const customerName = document.getElementById('customer_name').value.trim();
+            let hasValidService = false;
+            
+            // Check if at least one service is selected with quantity > 0
+            document.querySelectorAll('.service-row').forEach(row => {
+                const selectElement = row.querySelector('.service-select');
+                const quantityInput = row.querySelector('.quantity-input');
+                
+                if (selectElement.value && quantityInput.value && parseInt(quantityInput.value) > 0) {
+                    hasValidService = true;
+                }
+            });
+            
+            const isValid = customerName && hasValidService;
+            const previewBtn = document.getElementById('previewBtn');
+            
+            if (isValid) {
+                previewBtn.disabled = false;
+                previewBtn.classList.remove('btn-secondary');
+                previewBtn.classList.add('btn-warning');
+            } else {
+                previewBtn.disabled = true;
+                previewBtn.classList.remove('btn-warning');
+                previewBtn.classList.add('btn-secondary');
             }
+        }
+        
+        // Show receipt preview function
+        function showReceiptPreview() {
+            // Populate customer information
+            document.getElementById('preview-customer-name').textContent = 
+                document.getElementById('customer_name').value || 'Not provided';
+            document.getElementById('preview-customer-phone').textContent = 
+                document.getElementById('customer_phone').value || 'Not provided';
+            document.getElementById('preview-customer-email').textContent = 
+                document.getElementById('customer_email').value || 'Not provided';
+            document.getElementById('preview-notes').textContent = 
+                document.getElementById('notes').value || 'No notes';
+            
+            // Populate services table
+            const tbody = document.querySelector('#preview-services-table tbody');
+            tbody.innerHTML = '';
+            
+            let subtotal = 0;
+            let totalCommission = 0;
+            
+            document.querySelectorAll('.service-row').forEach(row => {
+                const selectElement = row.querySelector('.service-select');
+                const selectedOption = selectElement.options[selectElement.selectedIndex];
+                const quantityInput = row.querySelector('.quantity-input');
+                
+                if (selectedOption.value && quantityInput.value) {
+                    const serviceName = selectedOption.textContent.split(' - ')[0];
+                    const price = parseFloat(selectedOption.getAttribute('data-price'));
+                    const commission = parseFloat(selectedOption.getAttribute('data-commission'));
+                    const quantity = parseInt(quantityInput.value) || 1;
+                    const lineTotal = price * quantity;
+                    const lineCommission = (lineTotal * commission) / 100;
+                    
+                    subtotal += lineTotal;
+                    totalCommission += lineCommission;
+                    
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${serviceName}</td>
+                        <td>${quantity}</td>
+                        <td>${currency}${price.toFixed(2)}</td>
+                        <td>${currency}${lineTotal.toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            });
+            
+            // Calculate VAT for preview
+            const applyVat = document.getElementById('apply_vat').checked;
+            const vatAmount = applyVat ? (subtotal * vatPercentage / 100) : 0;
+            const total = subtotal + vatAmount;
+            
+            // Update preview totals
+            document.getElementById('preview-subtotal').textContent = currency + subtotal.toFixed(2);
+            document.getElementById('preview-commission').textContent = currency + totalCommission.toFixed(2);
+            document.getElementById('preview-total').textContent = currency + total.toFixed(2);
+            
+            // Show/hide VAT in preview
+            const previewVatRow = document.getElementById('preview-vat-row');
+            if (applyVat && vatPercentage > 0) {
+                document.getElementById('preview-vat-percentage').textContent = vatPercentage.toFixed(1);
+                document.getElementById('preview-vat-amount').textContent = currency + vatAmount.toFixed(2);
+                previewVatRow.style.display = 'flex';
+            } else {
+                previewVatRow.style.display = 'none';
+            }
+            
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('receiptPreviewModal'));
+            modal.show();
+        }
+        
+        // Confirm and create receipt function
+        let isSubmitting = false;
+        function confirmCreateReceipt() {
+            if (isSubmitting) {
+                return; // Prevent double submission
+            }
+            
+            // Final confirmation
+            if (confirm('Are you absolutely sure you want to create this receipt? This action cannot be undone.')) {
+                isSubmitting = true;
+                document.getElementById('confirmBtn').disabled = true;
+                document.getElementById('confirmBtn').innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating...';
+                
+                // Submit the form
+                document.getElementById('receiptForm').submit();
+            }
+        }
+        
+        // Add change event listeners to all form inputs
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('quantity-input') || 
+                e.target.classList.contains('service-select') ||
+                e.target.id === 'customer_name' ||
+                e.target.id === 'apply_vat') {
+                calculateTotal();
+                validateForm();
+            }
+        });
+        
+        // Add input event listener for real-time validation
+        document.addEventListener('input', function(e) {
+            if (e.target.id === 'customer_name') {
+                validateForm();
+            }
+        });
+        
+        // Prevent form submission via Enter key - force users to use preview
+        document.getElementById('receiptForm').addEventListener('submit', function(e) {
+            if (!isSubmitting) {
+                e.preventDefault();
+                alert('Please use the Preview Receipt button to review your receipt before creating it.');
+                return false;
+            }
+        });
+        
+        // Initial validation on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            validateForm();
         });
     </script>
 </body>
